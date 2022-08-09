@@ -4,7 +4,7 @@ This app is primitive solution to resolve SPA problems with SEO.
 
 
 ## Getting start
-Before start local development please make sure you have [Chrome browser](https://www.google.com/chrome/) and instance of [Redis](https://redis.io/) [help](https://tableplus.com/blog/2018/10/how-to-start-stop-restart-redis.html)
+Before start local development please make sure you have [Chrome browser](https://www.google.com/chrome/) and instance of [Redis](https://redis.io/) ([help](https://tableplus.com/blog/2018/10/how-to-start-stop-restart-redis.html))
 
 - **install dependencies**
     - `> npm install`
