@@ -11,19 +11,22 @@ import { isWebUri } from 'valid-url';
 
 // local dependencies
 import redis from './redis/index.js';
-import * as prerender from './prerender/index.js';
+import prerender from './prerender/index.js';
 
 // configure
+let READY;
 const port = process.env.PORT || 80;
 const host = process.env.HOST || '127.0.0.1';
 
 // NOTE create
-const index = http.createServer(middleware);
-index.close(() => console.warn('[server:stopped]', `http://${host}:${port}/`));
+const server = http.createServer(middleware);
+// server.close(() => console.warn('[server:stopped]', `http://${host}:${port}/`));
 // NOTE starting
-index.listen(port, host, () => {
+server.listen(port, host, async () => {
   console.warn('[server:start]', `http://${host}:${port}/`);
-  prerender.start().then(() => console.warn('[server:prerender]', 'Started'));
+  await redis.start();
+  await prerender.start();
+  READY = true;
 });
 
 // TODO handle better
@@ -42,13 +45,14 @@ async function middleware (request, response) {
   const options = qs.parse(query);
   const prerenderURL = qs.unescape(options.url);
   try {
+    if (!READY) { throw { code: 503, message: 'Service not ready yet' }; }
     if (!isWebUri(options.url)) { throw { code: 400, message: `Invalid query parameter url "${options.url}"` }; }
     let results;
     switch (pathname) {
       default: throw { code: 404, message: 'Not found' };
       case '/render':
         results = await redis.get(prerenderURL);
-        results && console.log('[server:cache]', request.method, pathname, '=>', prerenderURL);
+        results && console.log('[server:cache]', prerenderURL);
         if (!results) { results = await refresh(prerenderURL); }
         break;
       case '/refresh':

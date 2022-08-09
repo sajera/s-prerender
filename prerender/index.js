@@ -5,8 +5,11 @@ import sanitise from 'sanitize-html';
 // local dependencies
 import browser from './chrome.js';
 
+export default { start, render };
+
 // configure
 const config = {
+  chromeLocation: null,
   waitAfterLastRequest: 5e2,
   timeoutStatusCode: void(0),
   pageLoadTimeout: 2e4,
@@ -16,7 +19,6 @@ const config = {
   logRequests: false,
   enableServiceWorker: false,
   userAgent: null,
-  chromeLocation: null,
   chromeFlags: null, // []
   browserDebuggingPort: 9222,
 }
@@ -30,16 +32,16 @@ process.on('SIGINT', () => {
   setTimeout(() => process.exit(), 5e2);
 });
 
-export async function start () {
+async function start () {
   CONNECTED = false;
-  console.log('[prerender:start]');
   await browser.spawn(config);
-  browser.onClose(() => console.log('[prerender:close]', END) || !END && start());
+  browser.onClose(() => console.log('[prerender:stopped]', END) || !END && start());
   await browser.connect();
+  console.log('[prerender:start]', browser.getChromeLocation());
   CONNECTED = true;
 }
 
-export async function render (url) {
+async function render (url) {
   await waitForBrowserToConnect();
   const tab = await browser.openTab({ url, renderType: 'html' });
   // console.log('[prerender:tab]');

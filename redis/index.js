@@ -5,6 +5,7 @@ import { createClient } from 'redis';
 // local dependencies
 
 // configure
+let client;
 const config = {
   url: process.env.REDIS_URL,
   name: process.env.REDIS_NAME,
@@ -18,11 +19,16 @@ const config = {
   // isolationPoolOptions?: PoolOptions;
 };
 
-const client = createClient(config);
-client.on('error', err => console.log('[redis:error]', err));
-client.on('connect', () => console.log('[redis:connected]', config.url));
-// client.on('ready', () => console.log('[redis:ready]', config));
-client.on('end', () => console.log('[redis:end]', config.url));
-await client.connect();
+export default { start, set, get };
 
-export default client;
+async function start () {
+  client = createClient(config);
+  client.on('error', err => console.log('[redis:error]', err));
+  client.on('connect', () => console.log('[redis:start]', config.url));
+// client.on('ready', () => console.log('[redis:ready]', config));
+  client.on('end', () => console.log('[redis:stopped]', config.url));
+  await client.connect();
+}
+
+function set (key, value) { client.set(key, value); }
+function get (key) { client.get(key); }
