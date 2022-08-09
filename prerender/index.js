@@ -47,13 +47,18 @@ async function render (url) {
   // console.log('[prerender:tab]');
   await browser.loadUrlThenWaitForPageLoadEvent(tab, url);
   // console.log('[prerender:loadUrlThenWaitForPageLoadEvent]');
-  // await browser.executeJavascript(tab, req.prerender.javascript);
+  // await browser.executeJavascript(tab, '');
   // console.log('[prerender:executeJavascript]', tab);
   await browser.parseHtmlFromPage(tab);
-  // console.log('[prerender:parseHtmlFromPage]');
+  // console.log('[prerender:parseHtmlFromPage]', tab);
   await browser.closeTab(tab);
   // console.log('[prerender:prerender]', tab.prerender.content);
-  return sanitise(tab.prerender.content);
+  // NOTE escape "scripts", "noscript" and "styles"
+  return sanitise(tab.prerender.content, {
+    allowedStyles: false,
+    allowedAttributes: false,
+    allowedTags: sanitise.defaults.allowedTags.concat(['head', 'meta', 'title', 'link']),
+  });
 }
 
 // HELPERS
