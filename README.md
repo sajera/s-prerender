@@ -13,7 +13,7 @@ Before start local development please make sure you have [Chrome browser](https:
 ---
 ### API
 Will render URL in `Chrome` browser then return `HTML` only the first time. After providing `HTML` content from the `Redis` cache.
-- **GET /render?url=http://example.com/**
+- **GET /render**
     - `> curl 'http://localhost:3000/render?url=http://example.com/'`
 
 Force reset `Redis` and render url in `Chrome` browser then return `html`.
