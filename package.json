@@ -12,8 +12,9 @@
     "brew:redis:restart": "brew services restart redis",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "",
-  "license": "ISC",
+  "author": "Sajera: Serhii P <allsajera@gmail.com>",
+  "homepage": "https://github.com/sajera/s-prerender#s-prerender",
+  "license": "MIT",
   "dependencies": {
     "chrome-remote-interface": "^0.31.3",
     "dotenv": "^16.0.1",
