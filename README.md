@@ -20,6 +20,8 @@ Force reset `Redis` and render url in `Chrome` browser then return `html`.
 - **GET /refresh**
     - `> curl 'http://localhost:3000/refresh?url=http://example.com/'`
 
+### Docker
+TODO pack into docker
 
 ### Redis
 The package require Redis instance.
