@@ -49,12 +49,12 @@ const configPrerender = {
 // NOTE create
 const api = http.createServer(middleware);
 // api.close(() => log('[api:stopped]', `http://${configAPI.host}:${configAPI.port}/`));
+log('[api:start]', `http://${configAPI.host}:${configAPI.port}/`);
 api.listen(configAPI.port, configAPI.host, async () => {
-  log('[api:start]', `http://${configAPI.host}:${configAPI.port}/`);
-  await redis.start(configRedis);
   log('[redis:start]', configRedis);
+  await redis.start(configRedis);
+  log('[prerender:start]', configPrerender);
   await prerender.start(configPrerender);
-  log('[prerender:start]', configRedis);
   READY = true;
 });
 

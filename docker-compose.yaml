@@ -8,24 +8,22 @@ services:
 #    init: true
     tty: true
     environment:
+      DEBUG: 1
       PORT: 3000
-      HOST: 127.0.0.0
-      REDIS_URL: redis://127:0:0:1:6379
+      HOST: 127.0.0.1
+      REDIS_URL: redis://cache:6379/0
     depends_on:
       - cache
     ports:
       - '3000:3000'
     command: npm run start:dev
     volumes:
-      - .:/usr/app/
+      - .:/home/node/
       - /usr/app/node_modules
 
   cache:
     image: redis:6.2-alpine
     restart: always
-    environment:
-      PORT: 6379
-      HOST: 127.0.0.1
     ports:
       - '6379:6379'
     command: redis-server --save 20 1 --loglevel warning

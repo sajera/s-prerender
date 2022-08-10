@@ -3,8 +3,8 @@
 import sanitise from 'sanitize-html';
 
 // local dependencies
-import browser from './chrome.js';
 import { debug } from '../log.js';
+import { chrome as browser } from './chrome.js';
 
 export default { start, render };
 
@@ -22,9 +22,12 @@ async function start (config) {
   CONNECTED = false;
   await browser.spawn(config);
   debug('[prerender:start]', config);
-  browser.onClose(() => debug('[prerender:stopped]', END) || !END && start());
+  browser.onClose(() => {
+    debug('[prerender:stopped]', END);
+    // debug('[prerender:stopped]', END) || !END && start(config)
+  });
   await browser.connect();
-  debug('[prerender:start]', { bin: browser.getChromeLocation() });
+  // debug('[prerender:start]', { bin: browser.getChromeLocation() });
   CONNECTED = true;
 }
 

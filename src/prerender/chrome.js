@@ -9,8 +9,7 @@ import { spawn } from 'node:child_process';
 import { debug } from '../log.js';
 
 // configure
-const chrome = { name: 'Chrome' };
-export default chrome;
+export const chrome = { name: 'Chrome' };
 
 const sleep = (durationMs) => new Promise((resolve) => setTimeout(() => { resolve() }, durationMs));
 const ChromeConnectionClosed = 'ChromeConnectionClosed';
