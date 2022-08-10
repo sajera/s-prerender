@@ -1,0 +1,36 @@
+
+version: "3.8"
+
+services:
+  main:
+    build:
+      context: .
+#    init: true
+    tty: true
+    environment:
+      PORT: 3000
+      HOST: 127.0.0.0
+      REDIS_URL: redis://127:0:0:1:6379
+    depends_on:
+      - cache
+    ports:
+      - '3000:3000'
+    command: npm run start:dev
+    volumes:
+      - .:/usr/app/
+      - /usr/app/node_modules
+
+  cache:
+    image: redis:6.2-alpine
+    restart: always
+    environment:
+      PORT: 6379
+      HOST: 127.0.0.1
+    ports:
+      - '6379:6379'
+    command: redis-server --save 20 1 --loglevel warning
+    volumes:
+      - cache:/data/cache
+
+volumes:
+  cache:
