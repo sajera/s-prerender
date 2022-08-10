@@ -9,7 +9,7 @@ export default { start, render };
 
 // configure
 const config = {
-  chromeLocation: null,
+  chromeLocation: process.env.CHROME_LOCATION,
   waitAfterLastRequest: 5e2,
   timeoutStatusCode: void(0),
   pageLoadTimeout: 2e4,
