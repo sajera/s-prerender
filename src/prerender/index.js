@@ -3,66 +3,56 @@
 import sanitise from 'sanitize-html';
 
 // local dependencies
-import browser from './chrome.js';
+import { debug } from '../log.js';
+import { chrome as browser } from './chrome.js';
 
 export default { start, render };
 
 // configure
-const config = {
-  chromeLocation: process.env.CHROME_LOCATION,
-  waitAfterLastRequest: 5e2,
-  timeoutStatusCode: void(0),
-  pageLoadTimeout: 2e4,
-  pageDoneCheckInterval: 5e2,
-  captureConsoleLog: false,
-  followRedirects: false,
-  logRequests: false,
-  enableServiceWorker: false,
-  userAgent: null,
-  chromeFlags: null, // []
-  browserDebuggingPort: 9222,
-}
-// NOTE care about child process
 let END;
 let CONNECTED;
 process.on('SIGINT', () => {
   browser.kill();
   END = true;
-  console.log('[prerender:stop]');
   setTimeout(() => process.exit(), 5e2);
 });
 
-async function start () {
+async function start (config) {
   CONNECTED = false;
   await browser.spawn(config);
-  browser.onClose(() => console.log('[prerender:stopped]', END) || !END && start());
+  debug('[prerender:start]', config);
+  browser.onClose(() => {
+    debug('[prerender:stopped]', END);
+    // debug('[prerender:stopped]', END) || !END && start(config)
+  });
   await browser.connect();
-  console.log('[prerender:start]', browser.getChromeLocation());
+  // debug('[prerender:start]', { bin: browser.getChromeLocation() });
   CONNECTED = true;
 }
 
 async function render (url) {
   await waitForBrowserToConnect();
   const tab = await browser.openTab({ url, renderType: 'html' });
-  // console.log('[prerender:tab]');
+  debug('[prerender:tab]');
   await browser.loadUrlThenWaitForPageLoadEvent(tab, url);
-  // console.log('[prerender:loadUrlThenWaitForPageLoadEvent]');
+  debug('[prerender:loadUrlThenWaitForPageLoadEvent]');
   // await browser.executeJavascript(tab, '');
-  // console.log('[prerender:executeJavascript]', tab);
+  // debug('[prerender:executeJavascript]', tab);
   await browser.parseHtmlFromPage(tab);
-  // console.log('[prerender:parseHtmlFromPage]', tab);
+  debug('[prerender:parseHtmlFromPage]');
   await browser.closeTab(tab);
-  // console.log('[prerender:prerender]', tab.prerender.content);
+  debug('[prerender:closeTab] sanitize html');
   // NOTE escape "scripts", "noscript" and "styles"
   return sanitise(tab.prerender.content, {
     allowedStyles: false,
     allowedAttributes: false,
     allowedTags: sanitise.defaults.allowedTags.concat(['head', 'meta', 'title', 'link']),
+    exclusiveFilter: frame => frame.tag === 'link' && frame.attribs.rel === 'stylesheet',
   });
 }
 
 // HELPERS
-const delay = (gap = 2e2) => new Promise(resolve => setTimeout(resolve, gap))
+const delay = (gap = 2e2) => new Promise(resolve => setTimeout(resolve, gap));
 async function waitForBrowserToConnect () {
   let checks = 0;
   while (checks < 100) {

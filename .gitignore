@@ -48,13 +48,15 @@ Thumbs.db
 # temporary or auto generated data
 ##################################
 node_modules
+.cache
+.npm
+.pki
 
 # app ignores
 wiki
 design
 
 # local environment config
-.env*
 local.*
 *.local
 *.local.*

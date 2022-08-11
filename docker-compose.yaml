@@ -1,0 +1,38 @@
+
+version: "3.8"
+
+services:
+  main:
+    build:
+      context: .
+#    init: true
+    tty: true
+    environment:
+      DEBUG: 1
+      PORT: 3000
+      HOST: 0.0.0.0
+      REDIS_URL: redis://cache:6379/0
+      CHROME_FORWARD_HEADERS: 1
+      CHROME_DEBUGGING_PORT: 9222
+      CHROME_BIN: /usr/bin/chromium-browser
+      CHROME_FLAGS: --no-sandbox,--headless,--disable-gpu,--remote-debugging-port=9222,--hide-scrollbars,--disable-dev-shm-usage
+    depends_on:
+      - cache
+    ports:
+      - '3000:3000'
+    command: npm run start:dev
+    volumes:
+      - .:/home/node/
+      - /usr/app/node_modules
+
+  cache:
+    image: redis:6.2-alpine
+    restart: always
+    ports:
+      - '6379:6379'
+    command: redis-server --save 20 1 --loglevel warning
+    volumes:
+      - cache:/data/cache
+
+volumes:
+  cache:
