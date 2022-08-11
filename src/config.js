@@ -9,7 +9,7 @@ export const DEBUG = varBoolean(process.env.DEBUG);
 
 export const API = {
   PORT: varNumber(process.env.PORT) || 80,
-  HOST: varString(process.env.HOST) || '127.0.0.1',
+  HOST: varString(process.env.HOST),
 };
 
 export const REDIS = {
@@ -24,23 +24,21 @@ export const REDIS = {
   // legacyMode?: boolean;
   // isolationPoolOptions?: PoolOptions;
 };
-console.log('process.env.CHROME_FORWARD_HEADERS', process.env.CHROME_FORWARD_HEADERS);
-console.log('process.env.CHROME_FLAGS', process.env.CHROME_FLAGS);
-console.log('varArray(process.env.CHROME_FLAGS)', varArray(process.env.CHROME_FLAGS));
 export const PRERENDER = {
   browserDebuggingPort: varNumber(process.env.CHROME_DEBUGGING_PORT),
   forwardHeaders: varBoolean(process.env.CHROME_FORWARD_HEADERS),
+  cleanupHtmlScript: varString(process.env.CHROME_CLEANUP_HTML),
   chromeLocation: varString(process.env.CHROME_BIN),
   chromeFlags: varArray(process.env.CHROME_FLAGS),
   waitAfterLastRequest: 5e2,
   pageDoneCheckInterval: 5e2,
+  timeoutStatusCode: 504,
   pageLoadTimeout: 2e4,
+  enableServiceWorker: false,
   // chromeFlags: ['--no-sandbox', '--headless', '--disable-gpu', '--remote-debugging-port=9222', '--hide-scrollbars', '--disable-dev-shm-usage'],
-  // timeoutStatusCode: null,
   // captureConsoleLog: false,
   // followRedirects: false,
   // logRequests: false,
-  // enableServiceWorker: false,
   // userAgent: null,
   // chromeFlags: null, // []
 };
@@ -48,15 +46,15 @@ export default { DEBUG, API, REDIS, PRERENDER };
 /******************************************************
  *            variables parsers
  *****************************************************/
-function varBoolean (value) {
+export function varBoolean (value) {
   return /^(true|1)$/i.test(value);
 }
-function varNumber (value) {
+export function varNumber (value) {
   return parseFloat(value) || void 0;
 }
-function varArray (value) {
+export function varArray (value) {
   return value ? value.split(',') : void 0;
 }
-function varString (value) {
+export function varString (value) {
   return /^(null|undefined)$/i.test(value) ? void 0 : value;
 }

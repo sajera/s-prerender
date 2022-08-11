@@ -36,8 +36,6 @@ async function render (url) {
   debug('[prerender:tab]');
   await browser.loadUrlThenWaitForPageLoadEvent(tab, url);
   debug('[prerender:loadUrlThenWaitForPageLoadEvent]');
-  // await browser.executeJavascript(tab, '');
-  // debug('[prerender:executeJavascript]', tab);
   await browser.parseHtmlFromPage(tab);
   debug('[prerender:parseHtmlFromPage]');
   await browser.closeTab(tab);
@@ -62,4 +60,3 @@ async function waitForBrowserToConnect () {
     if (CONNECTED) { break; }
   }
 }
-

@@ -23,9 +23,9 @@ const api = createServer(middleware);
 log('[api:starting]', CONFIG.API);
 api.listen(CONFIG.API.PORT, CONFIG.API.HOST, async () => {
   log('[api:started]', `http://${CONFIG.API.HOST}:${CONFIG.API.PORT}/`);
-  log('[redis:starting]', CONFIG.REDIS);
+  log('[redis:connecting]', CONFIG.REDIS);
   await redis.start(CONFIG.REDIS);
-  log('[redis:started]');
+  log('[redis:connected]');
   log('[prerender:starting]', CONFIG.PRERENDER);
   await prerender.start(CONFIG.PRERENDER);
   log('[prerender:started]');
@@ -66,7 +66,13 @@ async function middleware (request, response) {
     response.statusCode = error.code || 500;
     response.setHeader('Content-Type', 'text/plain');
     response.end(`[ERROR:${response.statusCode}] ${error.message}`);
-    logError('API', { method: request.method, pathname, error });
+    logError('API', {
+      method: request.method,
+      pathname,
+      message: error.message,
+      stack: error.stack,
+      code: error.code,
+    });
   }
   uid && console.timeEnd(uid);
 }

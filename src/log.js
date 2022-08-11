@@ -7,6 +7,6 @@ export const debug = (text, info) => CONFIG.DEBUG && logWithTime(`\x1B[0m\x1B[37
 const logWithTime = (text, obj) => console.log(
   `\x1B[0m\x1B[37m[${new Date().toLocaleDateString()}:${new Date().toLocaleTimeString()}]\x1B[39m\x1B[0m`,
   text,
-  obj ? JSON.stringify(obj) : '',
+  obj ? JSON.stringify(obj, null, 4) : '',
 );
 export default { debug, log, logError };
