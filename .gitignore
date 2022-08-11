@@ -50,6 +50,7 @@ Thumbs.db
 node_modules
 .cache
 .npm
+.pki
 
 # app ignores
 wiki

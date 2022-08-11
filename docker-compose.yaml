@@ -10,7 +10,7 @@ services:
     environment:
       DEBUG: 1
       PORT: 3000
-      HOST: 127.0.0.1
+      HOST: 0.0.0.0
       REDIS_URL: redis://cache:6379/0
       CHROME_FORWARD_HEADERS: 1
       CHROME_BIN: /usr/bin/chromium-browser
