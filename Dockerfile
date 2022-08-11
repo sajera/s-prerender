@@ -17,5 +17,4 @@ RUN npm install --no-package-lock
 
 EXPOSE 3000
 
-#ENTRYPOINT ["tini", "--"]
 CMD ["npm", "run", "start"]
