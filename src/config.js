@@ -9,7 +9,7 @@ export const DEBUG = varBoolean(process.env.DEBUG);
 
 export const API = {
   PORT: varNumber(process.env.PORT) || 80,
-  HOST: varString(process.env.HOST),
+  HOST: varString(process.env.HOST) || '127.0.0.1',
 };
 
 export const REDIS = {
@@ -41,7 +41,6 @@ export const PRERENDER = {
   // userAgent: null,
   // chromeFlags: null, // []
 };
-export default { DEBUG, API, REDIS, PRERENDER };
 /******************************************************
  *            variables parsers
  *****************************************************/
@@ -57,3 +56,15 @@ export function varArray (value) {
 export function varString (value) {
   return /^(null|undefined)$/i.test(value) ? void 0 : value;
 }
+/******************************************************
+ *        ¯\(ヅ)/¯ helpers ᕦ(ツ)ᕤ
+ *****************************************************/
+export const delay = (gap = 2e2) => new Promise(resolve => setTimeout(resolve, gap));
+export const util = (text, info) => logWithTime(text, info);
+export const logError = (text, error) => logWithTime(`\x1B[0m\x1B[31m(ERROR:${text})\x1B[39m\x1B[0m`, error);
+export const debug = (text, info) => DEBUG && logWithTime(`\x1B[0m\x1B[37m${text}\x1B[39m\x1B[0m`, info);
+const logWithTime = (text, obj) => console.log(
+  `\x1B[0m\x1B[37m[${new Date().toLocaleDateString()}:${new Date().toLocaleTimeString()}]\x1B[39m\x1B[0m`,
+  text,
+  obj ? JSON.stringify(obj, null, 4) : '',
+);

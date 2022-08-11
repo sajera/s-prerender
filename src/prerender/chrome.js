@@ -6,41 +6,31 @@ import CDP from 'chrome-remote-interface';
 import { spawn } from 'node:child_process';
 
 // local dependencies
-import { debug } from '../log.js';
-import { varBoolean, varNumber } from '../config.js';
+import { debug, delay, varBoolean, varNumber } from '../config.js';
 
 // configure
 export const chrome = { name: 'Chrome' };
 
-const sleep = (durationMs) => new Promise((resolve) => setTimeout(() => { resolve() }, durationMs));
 const ChromeConnectionClosed = 'ChromeConnectionClosed';
 const UnableToLoadURL = 'UnableToLoadURL';
 
-chrome.spawn = options => new Promise((resolve, reject) => {
+chrome.spawn = options => {
   chrome.options = options;
   const location = chrome.getChromeLocation();
-  if (!fs.existsSync(location)) {
-    const error = new Error('Unable to find Chrome install. Please specify with chromeLocation');
-    error.code = 500;
-    return reject(error);
-  }
-  if (!chrome.options.chromeFlags) {
-    const error = new Error('Unable to find CHROME_FLAGS. Please specify with chromeFlags');
-    error.code = 500;
-    return reject(error);
-  }
-  resolve(chrome.chromeChild = spawn(location, chrome.options.chromeFlags));
-});
+  if (!fs.existsSync(location)) { throw new Error('Unable to find Chrome install. Please specify with chromeLocation'); }
+  if (!chrome.options.chromeFlags) { return new Error('Unable to find CHROME_FLAGS. Please specify with chromeFlags'); }
+  return chrome.chromeChild = spawn(location, chrome.options.chromeFlags);
+};
 
 chrome.onClose = callback => chrome.chromeChild.on('close', callback);
 
 chrome.kill = () => chrome.chromeChild && chrome.chromeChild.kill('SIGINT');
 
-chrome.connect = () => new Promise((resolve, reject) => {
+chrome.connect = () => new Promise(resolve => {
   let connected = false;
-  let timeout = setTimeout(() => !connected && reject(), 2e4);
+  const timeout = setTimeout(() => { throw new Error('Browser connection timed out'); }, 2e4);
 
-  let connect = () => CDP.Version({ port: chrome.options.browserDebuggingPort }).then((info) => {
+  const retry = () => CDP.Version({ port: chrome.options.browserDebuggingPort }).then(info => {
     chrome.originalUserAgent = info['User-Agent'];
     chrome.webSocketDebuggerURL = info.webSocketDebuggerUrl || 'ws://localhost:' + chrome.options.browserDebuggingPort + '/devtools/browser';
 
@@ -48,13 +38,9 @@ chrome.connect = () => new Promise((resolve, reject) => {
     connected = true;
     debug('[prerender:ready]', info);
     resolve(info);
-  }).catch(error => {
-    debug('[prerender:connect] retrying connection to Chrome...', error);
-    return setTimeout(connect, 1000);
-  });
+  }).catch(error => debug('[prerender:connect] Retrying connection to Chrome...', error, setTimeout(retry, 4e3)));
 
-  setTimeout(connect, 500);
-
+  setTimeout(retry, 0);
 });
 
 chrome.getChromeLocation = () => {
@@ -68,46 +54,34 @@ chrome.getChromeLocation = () => {
   }
 };
 
-chrome.openTab = function (options) {
-  return new Promise((resolve, reject) => {
+const connectToBrowser = async (target, port, retries = 5) => {
+  try { return await CDP({ target, port }); } catch (error) {
+    debug(`[prerender:connectToBrowser] Cannot connect to browser port=${port} retries=${retries}`, error);
+    if (retries > 0) {
+      await delay(5e2);
+      return connectToBrowser(target, port, --retries);
+    }
+    throw error;
+  }
+};
 
-    let browserContext = null;
-    let browser = null;
+chrome.openTab = async options => new Promise((resolve, reject) => {
+  let browserContext = null;
+  let browser = null;
 
-    const connectToBrowser = async (target, port) => {
-      let remainingRetries = 5;
-      for(;;) {
-        try {
-          return await CDP({ target, port });
-        } catch (error) {
-          debug(`[prerender:openTab] Cannot connect to browser port=${port} remainingRetries=${remainingRetries}`, error);
-          if (remainingRetries <= 0) {
-            throw error;
-          } else {
-            remainingRetries -= 1;
-            await sleep(500);
-          }
-        }
-      }
-    };
+  connectToBrowser(chrome.webSocketDebuggerURL, chrome.options.browserDebuggingPort)
+    .then((chromeBrowser) => {
+      browser = chromeBrowser;
 
-    connectToBrowser(this.webSocketDebuggerURL, this.options.browserDebuggingPort)
-      .then((chromeBrowser) => {
-        browser = chromeBrowser;
+      return browser.Target.createBrowserContext();
+    }).then(({ browserContextId }) => {
 
-        return browser.Target.createBrowserContext();
-      }).then(({ browserContextId }) => {
+    browserContext = browserContextId;
 
-      browserContext = browserContextId;
-
-      return browser.Target.createTarget({
-        url: 'about:blank',
-        browserContextId
-      });
-    }).then(({ targetId }) => {
-
-      return connectToBrowser(targetId, this.options.browserDebuggingPort);
-    }).then(tab => {
+    return browser.Target.createTarget({ url: 'about:blank', browserContextId });
+  })
+    .then(({ targetId }) => connectToBrowser(targetId, chrome.options.browserDebuggingPort))
+    .then(tab => {
       tab.browserContextId = browserContext;
       tab.browser = browser;
       tab.prerender = options;
@@ -116,10 +90,9 @@ chrome.openTab = function (options) {
       tab.prerender.numRequestsInFlight = 0;
       return chrome.setUpEvents(tab);
     })
-      .then(tab => resolve(tab))
-      .catch(error => debug(`[prerender:closeTab]`, error, reject(error)));
-  });
-};
+    .then(tab => resolve(tab))
+    .catch(error => debug(`[prerender:closeTab]`, error, reject(error)));
+});
 
 chrome.closeTab = tab => new Promise((resolve, reject) => {
   tab.browser.Target.closeTarget({ targetId: tab.target })

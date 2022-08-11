@@ -8,9 +8,8 @@ import { createServer } from 'node:http';
 
 // local dependencies
 import redis from './redis.js';
-import CONFIG from './config.js';
 import prerender from './prerender/index.js';
-import { logError, log, debug } from './log.js'
+import { logError, util, debug, API, REDIS, PRERENDER, DEBUG } from './config.js';
 
 //
 export { logError };
@@ -19,16 +18,16 @@ export { logError };
 let READY;
 // NOTE create
 const api = createServer(middleware);
-// api.close(() => log('[api:stopped]', `http://${CONFIG.API.HOST}:${CONFIG.API.PORT}/`));
-log('[api:starting]', CONFIG.API);
-api.listen(CONFIG.API.PORT, CONFIG.API.HOST, async () => {
-  log('[api:started]', `http://${CONFIG.API.HOST}:${CONFIG.API.PORT}/`);
-  log('[redis:connecting]', CONFIG.REDIS);
-  await redis.start(CONFIG.REDIS);
-  log('[redis:connected]');
-  log('[prerender:starting]', CONFIG.PRERENDER);
-  await prerender.start(CONFIG.PRERENDER);
-  log('[prerender:started]');
+// api.close(() => log('[api:stopped]', `http://${API.HOST}:${API.PORT}/`));
+util('[api:starting]', API);
+api.listen(API.PORT, API.HOST, async () => {
+  util('[api:started]', `http://${API.HOST}:${API.PORT}/`);
+  util('[redis:connecting]', REDIS);
+  await redis.start(REDIS);
+  util('[redis:connected]');
+  util('[prerender:starting]', PRERENDER);
+  await prerender.start(PRERENDER);
+  util('[prerender:started]');
   READY = true;
 });
 
@@ -38,7 +37,7 @@ api.listen(CONFIG.API.PORT, CONFIG.API.HOST, async () => {
  * @param response
  */
 async function middleware (request, response) {
-  let uid = CONFIG.DEBUG && uuid();
+  let uid = DEBUG && uuid();
   uid && console.time(uid);
   const { pathname, query } = url.parse(request.url);
   const options = qs.parse(query);
