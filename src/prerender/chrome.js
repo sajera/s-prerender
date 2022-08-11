@@ -65,42 +65,29 @@ const connectToBrowser = async (target, port, retries = 5) => {
   }
 };
 
-chrome.openTab = async options => new Promise((resolve, reject) => {
-  let browserContext = null;
-  let browser = null;
+chrome.openTab = async options => {
+  const browser = await connectToBrowser(chrome.webSocketDebuggerURL, chrome.options.browserDebuggingPort);
+  const { browserContextId } = await browser.Target.createBrowserContext();
+  const { targetId } = await browser.Target.createTarget({ url: 'about:blank', browserContextId });
+  const tab = await connectToBrowser(targetId, chrome.options.browserDebuggingPort);
+  tab.browser = browser;
+  tab.prerender = options;
+  tab.browserContextId = browserContextId;
+  // TODO WTF ?
+  tab.prerender.errors = [];
+  tab.prerender.requests = {};
+  tab.prerender.numRequestsInFlight = 0;
 
-  connectToBrowser(chrome.webSocketDebuggerURL, chrome.options.browserDebuggingPort)
-    .then((chromeBrowser) => {
-      browser = chromeBrowser;
+  await chrome.setUpEvents(tab);
 
-      return browser.Target.createBrowserContext();
-    }).then(({ browserContextId }) => {
+  return tab;
+};
 
-    browserContext = browserContextId;
-
-    return browser.Target.createTarget({ url: 'about:blank', browserContextId });
-  })
-    .then(({ targetId }) => connectToBrowser(targetId, chrome.options.browserDebuggingPort))
-    .then(tab => {
-      tab.browserContextId = browserContext;
-      tab.browser = browser;
-      tab.prerender = options;
-      tab.prerender.errors = [];
-      tab.prerender.requests = {};
-      tab.prerender.numRequestsInFlight = 0;
-      return chrome.setUpEvents(tab);
-    })
-    .then(tab => resolve(tab))
-    .catch(error => debug(`[prerender:closeTab]`, error, reject(error)));
-});
-
-chrome.closeTab = tab => new Promise((resolve, reject) => {
-  tab.browser.Target.closeTarget({ targetId: tab.target })
-    .then(() => tab.browser.Target.disposeBrowserContext({ browserContextId: tab.browserContextId }))
-    .then(() => tab.browser.close())
-    .then(() => resolve(tab))
-    .catch(error => debug(`[prerender:closeTab]`, error, reject(error)));
-});
+chrome.closeTab = async tab => {
+  await tab.browser.Target.closeTarget({ targetId: tab.target });
+  await tab.browser.Target.disposeBrowserContext({ browserContextId: tab.browserContextId });
+  await tab.browser.close();
+};
 
 chrome.setUpEvents = async tab => {
   const { Page, Security, DOM, Network, Log, Console } = tab;
