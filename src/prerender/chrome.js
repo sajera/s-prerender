@@ -18,67 +18,53 @@ const UnableToEvaluateJavascript = 'UnableToEvaluateJavascript';
 const ParseHTMLTimedOut = 'ParseHTMLTimedOut';
 const UnableToParseHTML = 'UnableToParseHTML';
 
-chrome.spawn = function (options) {
-  return new Promise((resolve, reject) => {
-    this.options = options;
-    let location = this.getChromeLocation();
+chrome.spawn = options => new Promise((resolve, reject) => {
+  chrome.options = options;
+  const location = chrome.getChromeLocation();
 
-    if (!fs.existsSync(location)) {
-      debug('[prerender:spawn] unable to find Chrome install. Please specify with chromeLocation');
-      return reject();
-    }
-    if (!this.options.chromeFlags) {
-      debug('[prerender:spawn] unable to find CHROME_FLAGS. Please specify with chromeFlags');
-      return reject();
-    }
-
-    this.chromeChild = spawn(location, this.options.chromeFlags);
-
-    resolve();
-  });
-};
-
-chrome.onClose = function (callback) {
-  this.chromeChild.on('close', callback);
-};
-
-chrome.kill = function () {
-  if (this.chromeChild) {
-    this.chromeChild.kill('SIGINT');
+  if (!fs.existsSync(location)) {
+    const error = new Error('Unable to find Chrome install. Please specify with chromeLocation');
+    debug('[prerender:spawn]', error);
+    return reject(error);
   }
-};
+  if (!chrome.options.chromeFlags) {
+    const error = new Error('Unable to find CHROME_FLAGS. Please specify with chromeFlags');
+    debug('[prerender:spawn]', error);
+    return reject(error);
+  }
+  chrome.chromeChild = spawn(location, chrome.options.chromeFlags);
+  resolve(chrome);
+});
 
-chrome.connect = function () {
-  return new Promise((resolve, reject) => {
-    let connected = false;
-    let timeout = setTimeout(() => {
-      if (!connected) {
-        reject();
-      }
-    }, 20 * 1000);
+chrome.onClose = callback => chrome.chromeChild.on('close', callback);
 
-    let connect = () => {
-      CDP.Version({ port: this.options.browserDebuggingPort }).then((info) => {
+chrome.kill = () => chrome.chromeChild && chrome.chromeChild.kill('SIGINT');
 
-        this.originalUserAgent = info['User-Agent'];
-        this.webSocketDebuggerURL = info.webSocketDebuggerUrl || 'ws://localhost:' + this.options.browserDebuggingPort + '/devtools/browser';
-        this.version = info.Browser;
+chrome.connect = () => new Promise((resolve, reject) => {
+  let connected = false;
+  let timeout = setTimeout(() => !connected && reject(), 2e4);
 
-        clearTimeout(timeout);
-        connected = true;
-        debug('[prerender:ready]', info.Browser);
-        resolve();
+  let connect = () => {
+    CDP.Version({ port: chrome.options.browserDebuggingPort }).then((info) => {
 
-      }).catch(error => {
-        debug('[prerender:connect] retrying connection to Chrome...', error);
-        return setTimeout(connect, 1000);
-      });
-    };
+      chrome.originalUserAgent = info['User-Agent'];
+      chrome.webSocketDebuggerURL = info.webSocketDebuggerUrl || 'ws://localhost:' + chrome.options.browserDebuggingPort + '/devtools/browser';
+      chrome.version = info.Browser;
 
-    setTimeout(connect, 500);
+      clearTimeout(timeout);
+      connected = true;
+      debug('[prerender:ready]', info.Browser);
+      resolve();
 
-  });
-};
+    }).catch(error => {
+      debug('[prerender:connect] retrying connection to Chrome...', error);
+      return setTimeout(connect, 1000);
+    });
+  };
+
+  setTimeout(connect, 500);
+
+});
 
 chrome.getChromeLocation = function () {
   if (this.options.chromeLocation) {
@@ -158,24 +144,16 @@ chrome.openTab = function (options) {
   });
 };
 
-chrome.closeTab = function (tab) {
-  return new Promise((resolve, reject) => {
-
-    tab.browser.Target.closeTarget({ targetId: tab.target })
-      .then(() => {
-
-        return tab.browser.Target.disposeBrowserContext({ browserContextId: tab.browserContextId });
-      }).then(() => {
-
-      return tab.browser.close();
-    }).then(() => {
-
-      resolve();
-    }).catch((err) => {
-      reject(err);
+chrome.closeTab = tab => new Promise((resolve, reject) => {
+  tab.browser.Target.closeTarget({ targetId: tab.target })
+    .then(() => tab.browser.Target.disposeBrowserContext({ browserContextId: tab.browserContextId }))
+    .then(() => tab.browser.close())
+    .then(() => resolve())
+    .catch(error => {
+      debug(`[prerender:closeTab]`, error);
+      reject(error);
     });
-  });
-};
+});
 
 chrome.setUpEvents = async function (tab) {
   const {
