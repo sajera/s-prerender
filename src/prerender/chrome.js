@@ -112,22 +112,17 @@ chrome.openTab = function (options) {
     }).then(({ targetId }) => {
 
       return connectToBrowser(targetId, this.options.browserDebuggingPort);
-    }).then((tab) => {
-
-      //we're going to put our state on the chrome tab for now
-      //we should clean this up later
+    }).then(tab => {
       tab.browserContextId = browserContext;
       tab.browser = browser;
       tab.prerender = options;
       tab.prerender.errors = [];
       tab.prerender.requests = {};
       tab.prerender.numRequestsInFlight = 0;
-
-      return this.setUpEvents(tab);
-    }).then((tab) => {
-
-      resolve(tab);
-    }).catch((err) => { reject(err) });
+      return chrome.setUpEvents(tab);
+    })
+      .then(tab => resolve(tab))
+      .catch(error => debug(`[prerender:closeTab]`, error, reject(error)));
   });
 };
 
@@ -135,11 +130,8 @@ chrome.closeTab = tab => new Promise((resolve, reject) => {
   tab.browser.Target.closeTarget({ targetId: tab.target })
     .then(() => tab.browser.Target.disposeBrowserContext({ browserContextId: tab.browserContextId }))
     .then(() => tab.browser.close())
-    .then(() => resolve())
-    .catch(error => {
-      debug(`[prerender:closeTab]`, error);
-      reject(error);
-    });
+    .then(() => resolve(tab))
+    .catch(error => debug(`[prerender:closeTab]`, error, reject(error)));
 });
 
 chrome.setUpEvents = async tab => {
@@ -328,8 +320,7 @@ chrome.setUpEvents = async tab => {
   return tab;
 };
 
-chrome.loadUrlThenWaitForPageLoadEvent = (tab, url, onNavigated) => new Promise((resolve, reject) => {
-  tab.prerender.url = url;
+chrome.loadUrlThenWaitForPageLoadEvent = tab => new Promise((resolve, reject) => {
   let finished = false;
   const { Page, Emulation } = tab;
 
@@ -357,14 +348,14 @@ chrome.loadUrlThenWaitForPageLoadEvent = (tab, url, onNavigated) => new Promise(
       if (!finished) {
         finished = true;
         debug('[prerender:loadUrlThenWaitForPageLoadEvent] page timed out', tab.prerender.url);
-        const timeoutStatusCode = tab.prerender.timeoutStatusCode || chrome.options.timeoutStatusCode;
+        const timeoutStatusCode = tab.prerender.timeoutStatusCode || 504;
         if (timeoutStatusCode) { tab.prerender.statusCode = timeoutStatusCode; }
         tab.prerender.timedout = true;
         resolve();
       }
     }, varNumber(tab.prerender.pageLoadTimeout) || chrome.options.pageLoadTimeout);
 
-    Page.addScriptToEvaluateOnNewDocument({ source: 'prerender = {}' });
+    // Page.addScriptToEvaluateOnNewDocument({ source: 'window.prerenderReady' });
     const width = parseInt(tab.prerender.width, 10) || 1440;
     const height = parseInt(tab.prerender.height, 10) || 718;
 
@@ -375,7 +366,7 @@ chrome.loadUrlThenWaitForPageLoadEvent = (tab, url, onNavigated) => new Promise(
       mobile: false
     });
 
-    Page.navigate({ url }).then(result => {
+    Page.navigate({ url: tab.prerender.url }).then(result => {
       tab.prerender.navigateError = result.errorText;
       if (tab.prerender.navigateError && tab.prerender.navigateError !== 'net::ERR_ABORTED') {
         debug(`[prerender:loadUrlThenWaitForPageLoadEvent] Navigation error: ${tab.prerender.navigateError}, url=${url}`);
@@ -402,10 +393,13 @@ chrome.checkIfPageIsDoneLoading = tab => new Promise((resolve, reject) => {
   if (tab.prerender.receivedRedirect) { return resolve(true); }
   if (tab.prerender.navigateError) { return resolve(true); }
   if (!tab.prerender.domContentEventFired) { return resolve(false); }
+  console.log('tab.prerender.receivedRedirect', tab.prerender.receivedRedirect);
+  console.log('tab.prerender.navigateError', tab.prerender.navigateError);
 
-  tab.Runtime.evaluate({ expression: 'window.prerenderRead' }).then(result => {
+  tab.Runtime.evaluate({ expression: 'window.prerenderReady' }).then(({ result }) => {
     const prerenderReadyDelay = tab.prerender.prerenderReadyDelay || 1000;
-    const prerenderReady = result && result.result && result.result.value;
+    const prerenderReady = result && result.value;
+    console.log('prerenderReady', prerenderReady);
     const shouldWaitForPrerenderReady = typeof prerenderReady == 'boolean';
     const waitAfterLastRequest = tab.prerender.waitAfterLastRequest || chrome.options.waitAfterLastRequest;
     const doneLoading = tab.prerender.numRequestsInFlight <= 0 && tab.prerender.lastRequestReceivedAt < ((new Date()).getTime() - waitAfterLastRequest);
@@ -427,50 +421,36 @@ chrome.checkIfPageIsDoneLoading = tab => new Promise((resolve, reject) => {
   });
 });
 
-const getHtml = prepareScript => `${prepareScript};window.document.firstElementChild.outerHTML;`
+chrome.parseHtmlFromPage = async tab => {
+  const timeout = setTimeout(() => {
+    const error = new Error('Parse html timed out');
+    error.code = 504;
+    throw error;
+  }, 5e3);
 
-chrome.parseHtmlFromPage = tab => new Promise((resolve, reject) => {
+  const { result: { value: html }} = await tab.Runtime.evaluate({ expression: 'window.document.firstElementChild.outerHTML;' });
+  if (!html) {
+    const error = new Error('Unable to parse HTML');
+    error.code = 500;
+    throw error;
+  }
 
-  const parseTimeout = setTimeout(() => {
-    debug('[prerender:parseHtmlFromPage] parse html timed out', tab.prerender.url);
-    tab.prerender.statusCode = 504;
-    tab.prerender.errors.push(ParseHTMLTimedOut);
-    reject();
-  }, 5000);
+  let { result: { value: doctype }} = await tab.Runtime.evaluate({ expression: 'JSON.stringify({ name: document.doctype.name, sid: document.doctype.systemId, pid: document.doctype.publicId })' });
+  doctype = JSON.parse(doctype);
+  const PUBLIC = doctype.pid ? ` PUBLIC "${doctype.pid}"` : doctype.sid ? ` SYSTEM "${doctype.sid}"`: '';
 
-  tab.Runtime.evaluate({ expression: getHtml(chrome.options.cleanupHtmlScript) }).then(({ result }) => {
-    debug('[prerender:parseHtmlFromPage] TEST');
+  clearTimeout(timeout);
+  return `<!DOCTYPE ${doctype.name}${PUBLIC}>` + html;
+};
 
-    tab.prerender.content = result.value;
-    if (tab.prerender.content === undefined) {
-      tab.prerender.statusCode = 504;
-    }
-    return tab.Runtime.evaluate({ expression: 'document.doctype && JSON.stringify({name: document.doctype.name, systemId: document.doctype.systemId, publicId: document.doctype.publicId})' });
-  }).then((response) => {
+chrome.executeJavascript = async (tab, expression) => {
+  const timeout = setTimeout(() => {
+    const error = new Error('Javascript executes timed out');
+    error.code = 504;
+    throw error;
+  }, 5e2);
 
-    let doctype = '';
-    if (response && response.result && response.result.value) {
-      let obj = { name: 'html' };
-      try {
-        obj = JSON.parse(response.result.value);
-      } catch (e) { }
-
-      doctype = "<!DOCTYPE "
-        + obj.name
-        + (obj.publicId ? ' PUBLIC "' + obj.publicId + '"' : '')
-        + (!obj.publicId && obj.systemId ? ' SYSTEM' : '')
-        + (obj.systemId ? ' "' + obj.systemId + '"' : '')
-        + '>'
-    }
-
-    tab.prerender.content = doctype + tab.prerender.content;
-    clearTimeout(parseTimeout);
-    resolve();
-  }).catch(error => {
-    debug('[prerender:parseHtmlFromPage] unable to parse HTML', error);
-    tab.prerender.statusCode = 504;
-    tab.prerender.errors.push(UnableToParseHTML);
-    clearTimeout(parseTimeout);
-    reject(error);
-  });
-});
+  const { result: { value }} = await tab.Runtime.evaluate({ expression });
+  clearTimeout(timeout);
+  return JSON.parse(value);
+};

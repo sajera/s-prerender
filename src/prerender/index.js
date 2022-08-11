@@ -34,14 +34,14 @@ async function render (url) {
   await waitForBrowserToConnect();
   const tab = await browser.openTab({ url, renderType: 'html' });
   debug('[prerender:tab]');
-  await browser.loadUrlThenWaitForPageLoadEvent(tab, url);
+  await browser.loadUrlThenWaitForPageLoadEvent(tab);
   debug('[prerender:loadUrlThenWaitForPageLoadEvent]');
-  await browser.parseHtmlFromPage(tab);
+  const html = await browser.parseHtmlFromPage(tab);
   debug('[prerender:parseHtmlFromPage]');
   await browser.closeTab(tab);
   debug('[prerender:closeTab] sanitize html');
   // NOTE escape "scripts", "noscript" and "styles"
-  return sanitise(tab.prerender.content, {
+  return sanitise(html, {
     allowedStyles: false,
     allowedAttributes: false,
     allowedTags: sanitise.defaults.allowedTags.concat(['head', 'meta', 'title', 'link']),
