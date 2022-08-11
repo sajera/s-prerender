@@ -36,6 +36,9 @@ async function render (url) {
   debug('[prerender:tab]');
   await browser.loadUrlThenWaitForPageLoadEvent(tab);
   debug('[prerender:loadUrlThenWaitForPageLoadEvent]');
+  // TODO remove - just example
+  await browser.executeJavascript(tab, `var c = document.getElementsByTagName('noscript'); for(;c.length;) c[0].remove();`);
+  debug('[prerender:executeJavascript]');
   const html = await browser.parseHtmlFromPage(tab);
   debug('[prerender:parseHtmlFromPage]');
   await browser.closeTab(tab);

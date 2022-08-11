@@ -15,26 +15,21 @@ export const chrome = { name: 'Chrome' };
 const sleep = (durationMs) => new Promise((resolve) => setTimeout(() => { resolve() }, durationMs));
 const ChromeConnectionClosed = 'ChromeConnectionClosed';
 const UnableToLoadURL = 'UnableToLoadURL';
-const UnableToEvaluateJavascript = 'UnableToEvaluateJavascript';
-const ParseHTMLTimedOut = 'ParseHTMLTimedOut';
-const UnableToParseHTML = 'UnableToParseHTML';
 
 chrome.spawn = options => new Promise((resolve, reject) => {
   chrome.options = options;
   const location = chrome.getChromeLocation();
-
   if (!fs.existsSync(location)) {
     const error = new Error('Unable to find Chrome install. Please specify with chromeLocation');
-    debug('[prerender:spawn]', error);
+    error.code = 500;
     return reject(error);
   }
   if (!chrome.options.chromeFlags) {
     const error = new Error('Unable to find CHROME_FLAGS. Please specify with chromeFlags');
-    debug('[prerender:spawn]', error);
+    error.code = 500;
     return reject(error);
   }
-  chrome.chromeChild = spawn(location, chrome.options.chromeFlags);
-  resolve(chrome);
+  resolve(chrome.chromeChild = spawn(location, chrome.options.chromeFlags));
 });
 
 chrome.onClose = callback => chrome.chromeChild.on('close', callback);
@@ -355,7 +350,7 @@ chrome.loadUrlThenWaitForPageLoadEvent = tab => new Promise((resolve, reject) =>
       }
     }, varNumber(tab.prerender.pageLoadTimeout) || chrome.options.pageLoadTimeout);
 
-    // Page.addScriptToEvaluateOnNewDocument({ source: 'window.prerenderReady' });
+    // Page.addScriptToEvaluateOnNewDocument({ source: 'window.prerenderReady = true' });
     const width = parseInt(tab.prerender.width, 10) || 1440;
     const height = parseInt(tab.prerender.height, 10) || 718;
 
@@ -414,9 +409,8 @@ chrome.checkIfPageIsDoneLoading = tab => new Promise((resolve, reject) => {
       (shouldWaitForPrerenderReady && prerenderReady && (doneLoading || timeSpentAfterFirstPrerenderReady > prerenderReadyDelay))
     );
   }).catch(error => {
+    error.code = 504;
     debug('[prerender:checkIfPageIsDoneLoading] unable to evaluate javascript on the page', error);
-    tab.prerender.statusCode = 504;
-    tab.prerender.errors.push(UnableToEvaluateJavascript);
     reject(error);
   });
 });
@@ -452,5 +446,5 @@ chrome.executeJavascript = async (tab, expression) => {
 
   const { result: { value }} = await tab.Runtime.evaluate({ expression });
   clearTimeout(timeout);
-  return JSON.parse(value);
+  return value && JSON.parse(value);
 };
