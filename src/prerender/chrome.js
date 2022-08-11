@@ -27,13 +27,12 @@ chrome.spawn = function (options) {
       debug('[prerender:spawn] unable to find Chrome install. Please specify with chromeLocation');
       return reject();
     }
+    if (!this.options.chromeFlags) {
+      debug('[prerender:spawn] unable to find CHROME_FLAGS. Please specify with chromeFlags');
+      return reject();
+    }
 
-    this.chromeChild = spawn(location, this.options.chromeFlags || [
-      '--headless',
-      '--disable-gpu',
-      '--remote-debugging-port=' + this.options.browserDebuggingPort,
-      '--hide-scrollbars',
-    ]);
+    this.chromeChild = spawn(location, this.options.chromeFlags);
 
     resolve();
   });

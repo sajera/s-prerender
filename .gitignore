@@ -56,7 +56,6 @@ wiki
 design
 
 # local environment config
-.env*
 local.*
 *.local
 *.local.*

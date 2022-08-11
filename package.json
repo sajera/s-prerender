@@ -7,9 +7,6 @@
   "scripts": {
     "start": "node index.js",
     "start:dev": "nodemon index.js",
-    "brew:redis:stop": "brew services stop redis",
-    "brew:redis:start": "brew services start redis",
-    "brew:redis:restart": "brew services restart redis",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Sajera: Serhii P <allsajera@gmail.com>",

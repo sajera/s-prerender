@@ -4,12 +4,16 @@ This app is primitive solution to resolve SPA problems with SEO.
 
 
 ## Getting start
+Running on local environment tha API require instance of Redis [learn more..](https://redis.io/docs/getting-started/).
 Before start local development please make sure you have [Chrome browser](https://www.google.com/chrome/) and instance of [Redis](https://redis.io/) ([help](https://tableplus.com/blog/2018/10/how-to-start-stop-restart-redis.html))
 
 - **install dependencies**
     - `> npm install`
 - **run project locally**
     - `> npm run start:dev`
+
+
+
 ---
 ### API
 Will render URL in `Chrome` browser then return `HTML` only the first time. After providing `HTML` content from the `Redis` cache.
