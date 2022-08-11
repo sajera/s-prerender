@@ -14,7 +14,6 @@ let CONNECTED;
 process.on('SIGINT', () => {
   browser.kill();
   END = true;
-  debug('[prerender:stop]');
   setTimeout(() => process.exit(), 5e2);
 });
 

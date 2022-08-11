@@ -1,60 +1,34 @@
 
 // outsource dependencies
 import url from 'node:url';
-import dotenv from 'dotenv';
-import http from 'node:http';
 import qs from 'node:querystring';
 import { v4 as uuid } from 'uuid';
 import { isWebUri } from 'valid-url';
+import { createServer } from 'node:http';
 
 // local dependencies
-import redis from './redis/index.js';
+import redis from './redis.js';
+import CONFIG from './config.js';
 import prerender from './prerender/index.js';
 import { logError, log, debug } from './log.js'
 
+//
+export { logError };
+
 // configure
 let READY;
-dotenv.config({ override: false, debug: process.env.DEBUG });
-const configAPI = {
-  port: process.env.PORT || 80,
-  host: process.env.HOST || '127.0.0.1',
-};
-const configRedis = {
-  url: process.env.REDIS_URL,
-  // name: process.env.REDIS_NAME,
-  // database: process.env.REDIS_DB,
-  // username: process.env.REDIS_USERNAME,
-  // password: process.env.REDIS_PASSWORD,
-  // commandsQueueMaxLength?: number;
-  // disableOfflineQueue?: boolean;
-  // readonly?: boolean;
-  // legacyMode?: boolean;
-  // isolationPoolOptions?: PoolOptions;
-};
-const configPrerender = {
-  chromeLocation: process.env.CHROME_BIN,
-  browserDebuggingPort: 9222,
-  waitAfterLastRequest: 5e2,
-  pageDoneCheckInterval: 5e2,
-  pageLoadTimeout: 2e4,
-  // timeoutStatusCode: null,
-  // captureConsoleLog: false,
-  // followRedirects: false,
-  // logRequests: false,
-  // enableServiceWorker: false,
-  // userAgent: null,
-  // chromeFlags: null, // []
-};
-
 // NOTE create
-const api = http.createServer(middleware);
-// api.close(() => log('[api:stopped]', `http://${configAPI.host}:${configAPI.port}/`));
-log('[api:start]', `http://${configAPI.host}:${configAPI.port}/`);
-api.listen(configAPI.port, configAPI.host, async () => {
-  log('[redis:start]', configRedis);
-  await redis.start(configRedis);
-  log('[prerender:start]', configPrerender);
-  await prerender.start(configPrerender);
+const api = createServer(middleware);
+// api.close(() => log('[api:stopped]', `http://${CONFIG.API.HOST}:${CONFIG.API.PORT}/`));
+log('[api:starting]', CONFIG.API);
+api.listen(CONFIG.API.PORT, CONFIG.API.HOST, async () => {
+  log('[api:started]', `http://${CONFIG.API.HOST}:${CONFIG.API.PORT}/`);
+  log('[redis:starting]', CONFIG.REDIS);
+  await redis.start(CONFIG.REDIS);
+  log('[redis:started]');
+  log('[prerender:starting]', CONFIG.PRERENDER);
+  await prerender.start(CONFIG.PRERENDER);
+  log('[prerender:started]');
   READY = true;
 });
 
@@ -64,7 +38,7 @@ api.listen(configAPI.port, configAPI.host, async () => {
  * @param response
  */
 async function middleware (request, response) {
-  let uid = process.env.DEBUG && uuid();
+  let uid = CONFIG.DEBUG && uuid();
   uid && console.time(uid);
   const { pathname, query } = url.parse(request.url);
   const options = qs.parse(query);

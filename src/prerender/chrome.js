@@ -67,6 +67,7 @@ chrome.connect = function () {
 
         clearTimeout(timeout);
         connected = true;
+        debug('[prerender:ready]', info.Browser);
         resolve();
 
       }).catch(error => {

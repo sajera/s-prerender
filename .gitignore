@@ -48,6 +48,8 @@ Thumbs.db
 # temporary or auto generated data
 ##################################
 node_modules
+.cache
+.npm
 
 # app ignores
 wiki

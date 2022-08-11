@@ -12,6 +12,9 @@ services:
       PORT: 3000
       HOST: 127.0.0.1
       REDIS_URL: redis://cache:6379/0
+      CHROME_FORWARD_HEADERS: 1
+      CHROME_BIN: /usr/bin/chromium-browser
+      CHROME_FLAGS: --no-sandbox,--headless,--disable-gpu,--remote-debugging-port=9222,--hide-scrollbars,--disable-dev-shm-usage
     depends_on:
       - cache
     ports:
