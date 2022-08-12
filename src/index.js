@@ -9,7 +9,7 @@ import { createServer } from 'node:http';
 // local dependencies
 import redis from './redis.js';
 import prerender from './prerender/index.js';
-import { logError, util, debug, API, REDIS, PRERENDER, DEBUG } from './config.js';
+import { logError, log, debug, API, REDIS, PRERENDER, DEBUG } from './config.js';
 
 //
 export { logError };
@@ -19,15 +19,15 @@ let READY;
 // NOTE create
 const api = createServer(middleware);
 // api.close(() => log('[api:stopped]', `http://${API.HOST}:${API.PORT}/`));
-util('[api:starting]', API);
+log('[api:starting]', API);
 api.listen(API.PORT, API.HOST, async () => {
-  util('[api:started]', `http://${API.HOST}:${API.PORT}/`);
-  util('[redis:connecting]', REDIS);
+  log('[api:started]', `http://${API.HOST}:${API.PORT}/`);
+  log('[redis:connecting]', REDIS);
   await redis.start(REDIS);
-  util('[redis:connected]');
-  util('[prerender:starting]', PRERENDER);
+  log('[redis:connected]');
+  log('[prerender:starting]', PRERENDER);
   await prerender.start(PRERENDER);
-  util('[prerender:started]');
+  log('[prerender:started]');
   READY = true;
 });
 
