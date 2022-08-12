@@ -22,7 +22,12 @@ For local running please use only `docker-compose.yml`.
 
 
 ## Deploy
-// TODO
+Deployment using Docker Image require only `REDIS_URL`.
+
+> Defaults
+- `PORT=*80`
+- `HOST=0.0.0.0`
+
 
 
 ---
