@@ -116,7 +116,7 @@ chrome.setUpEvents = async tab => {
     tab.prerender.pageLoadInfo.domContentEventFiredMs = timestamp * 1e3;
   });
 
-  Page.loadEventFired(({ timestamp }) => tab.prerender.pageLoadInfo.loadEventFiredMs = timestamp * 1e3;);
+  Page.loadEventFired(({ timestamp }) => tab.prerender.pageLoadInfo.loadEventFiredMs = timestamp * 1e3);
 
   //if the page opens up a javascript dialog, lets try to close it after 1s
   Page.javascriptDialogOpening(() => setTimeout(() => Page.handleJavaScriptDialog({ accept: true }), 1e3));

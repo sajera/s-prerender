@@ -48,7 +48,8 @@ async function render (url) {
     allowedStyles: false,
     allowedAttributes: false,
     allowedTags: sanitise.defaults.allowedTags.concat(['head', 'meta', 'title', 'link', 'img']),
-    exclusiveFilter: frame => frame.tag === 'link' && frame.attribs.rel === 'stylesheet',
+    // NOTE disallow links with "href"
+    // exclusiveFilter: frame => frame.tag === 'link' && frame.attribs.rel === 'stylesheet',
   });
 }
 
