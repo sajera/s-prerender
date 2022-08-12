@@ -28,10 +28,10 @@ console.log('process.env.CHROME_FORWARD_HEADERS', process.env.CHROME_FORWARD_HEA
 console.log('process.env.CHROME_FLAGS', process.env.CHROME_FLAGS);
 console.log('varArray(process.env.CHROME_FLAGS)', varArray(process.env.CHROME_FLAGS));
 export const PRERENDER = {
+  browserDebuggingPort: varNumber(process.env.CHROME_DEBUGGING_PORT),
   forwardHeaders: varBoolean(process.env.CHROME_FORWARD_HEADERS),
   chromeLocation: varString(process.env.CHROME_BIN),
   chromeFlags: varArray(process.env.CHROME_FLAGS),
-  browserDebuggingPort: 9222,
   waitAfterLastRequest: 5e2,
   pageDoneCheckInterval: 5e2,
   pageLoadTimeout: 2e4,
