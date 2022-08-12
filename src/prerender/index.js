@@ -45,14 +45,21 @@ async function render (url) {
   debug('[prerender:parseHtmlFromPage]');
   await browser.closeTab(tab);
   debug('[prerender:closeTab] sanitize html');
-  // NOTE escape "scripts", "noscript" and "styles"
-  return sanitise(html, {
+  const result = sanitise(html, {
     allowedStyles: false,
+    decodeEntities: false,
     allowedAttributes: false,
-    allowedTags: sanitise.defaults.allowedTags.concat(['head', 'meta', 'title', 'link', 'img']),
+    allowedTags: sanitise.defaults.allowedTags.concat([
+      'head', 'body', 'meta', 'title', 'link', 'img', 'svg', 'input', 'label', 'button', 'textarea',
+      'img', 'br', 'hr'
+    ]),
+    // disallowedTagsMode: false,
     // NOTE disallow links with "href"
     // exclusiveFilter: frame => frame.tag === 'link' && frame.attribs.rel === 'stylesheet',
   });
+  debug('[prerender:sanitizeHTML]');
+
+  return result;
 }
 
 // HELPERS
