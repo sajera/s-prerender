@@ -30,14 +30,12 @@ export const PRERENDER = {
   cleanupHtmlScript: varString(process.env.CHROME_CLEANUP_HTML),
   chromeLocation: varString(process.env.CHROME_BIN),
   chromeFlags: varArray(process.env.CHROME_FLAGS),
-  pageDoneCheckInterval: 3e2,
-  waitAfterLastRequest: 5e2,
-  pageLoadTimeout: 2e4,
   enableServiceWorker: false,
+  pageLoadTimeout: 2e4,       // Maximum time to page rendering
+  pageReadyDelay: 4e2,        // Give a bit time after last request to render data in html or trigger more requests
+  pageDoneCheckInterval: 3e2, // How often page should be checked about ready state
   // chromeFlags: ['--no-sandbox', '--headless', '--disable-gpu', '--remote-debugging-port=9222', '--hide-scrollbars', '--disable-dev-shm-usage'],
-  // captureConsoleLog: false,
   // followRedirects: false,
-  // logRequests: false,
   // userAgent: null,
   // chromeFlags: null, // []
 };
@@ -63,8 +61,9 @@ export const delay = (gap = 2e2) => new Promise(resolve => setTimeout(resolve, g
 export const log = (text, info) => logWithTime(text, info);
 export const logError = (text, error) => logWithTime(`\x1B[0m\x1B[31m(ERROR:${text})\x1B[39m\x1B[0m`, error);
 export const debug = (text, info) => DEBUG && logWithTime(`\x1B[0m\x1B[37m${text}\x1B[39m\x1B[0m`, info);
-const logWithTime = (text, obj) => console.log(
-  `\x1B[0m\x1B[37m[${new Date().toLocaleDateString()}:${new Date().toLocaleTimeString()}]\x1B[39m\x1B[0m`,
+const logWithTime = (text, data) => console.log(
+  `\x1B[0m\x1B[37m[${new Date().toISOString()}]\x1B[39m\x1B[0m`,
+  // `\x1B[0m\x1B[37m[${new Date().toLocaleDateString()}:${new Date().toLocaleTimeString()}]\x1B[39m\x1B[0m`,
   text,
-  obj ? JSON.stringify(obj, null, 4) : '',
+  data === undefined ? '' : JSON.stringify(data, null, 4),
 );

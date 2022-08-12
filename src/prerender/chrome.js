@@ -101,8 +101,6 @@ chrome.setUpEvents = async tab => {
     domContentEventFiredMs: undefined,
     loadEventFiredMs: undefined,
     entries: {},
-    logEntries: [],
-    user: undefined
   };
 
   // set overrides
@@ -246,28 +244,6 @@ chrome.setUpEvents = async tab => {
     }
   });
 
-  // <del>Console is deprecated, kept for backwards compatibility</del>
-  // It's still in use and can't get console-log from Log.entryAdded event
-  Console.messageAdded(params => {
-    if (tab.prerender.captureConsoleLog || chrome.options.captureConsoleLog) {
-      tab.prerender.pageLoadInfo.logEntries.push({
-        ...params.message,
-        // to keep consistent with Log.LogEntry
-        lineNumber: params.message.line,
-        timestamp: new Date().getTime()
-      });
-    }
-
-    if (tab.prerender.logRequests || chrome.options.logRequests) {
-      debug('[prerender:setUpEvents] level:', params.message);
-    }
-  });
-
-  Log.entryAdded((params) => {
-    tab.prerender.pageLoadInfo.logEntries.push(params.entry);
-    if (tab.prerender.logRequests || chrome.options.logRequests) debug('[prerender:setUpEvents]', params.entry);
-  });
-
   return tab;
 };
 
@@ -333,40 +309,37 @@ chrome.loadUrlThenWaitForPageLoadEvent = tab => new Promise((resolve, reject) =>
     });
   }).catch(error => {
     debug('[prerender:loadUrlThenWaitForPageLoadEvent] unable to load URL', error);
-    tab.prerender.statusCode = 504;
-    tab.prerender.errors.push(UnableToLoadURL);
+    error = 504;
     finished = true;
     reject(error);
   });
 });
 
 chrome.checkIfPageIsDoneLoading = tab => new Promise((resolve, reject) => {
-  if (tab.prerender.receivedRedirect) { return resolve(true); }
+  debug('[prerender:checkIfPageIsDoneLoading] check');
+  // debug('[prerender:checkIfPageIsDoneLoading]', { ...tab.prerender, pageLoadInfo: null });
   if (tab.prerender.navigateError) { return resolve(true); }
+  if (tab.prerender.receivedRedirect) { return resolve(true); }
   if (!tab.prerender.domContentEventFired) { return resolve(false); }
-  console.log('tab.prerender.receivedRedirect', tab.prerender.receivedRedirect);
-  console.log('tab.prerender.navigateError', tab.prerender.navigateError);
 
   tab.Runtime.evaluate({ expression: 'window.prerenderReady' }).then(({ result }) => {
-    const prerenderReadyDelay = tab.prerender.prerenderReadyDelay || 1000;
-    const prerenderReady = result && result.value;
-    console.log('prerenderReady', prerenderReady);
-    const shouldWaitForPrerenderReady = typeof prerenderReady == 'boolean';
-    const waitAfterLastRequest = tab.prerender.waitAfterLastRequest || chrome.options.waitAfterLastRequest;
-    const doneLoading = tab.prerender.numRequestsInFlight <= 0 && tab.prerender.lastRequestReceivedAt < ((new Date()).getTime() - waitAfterLastRequest);
-
-    if (prerenderReady && shouldWaitForPrerenderReady && !tab.prerender.firstPrerenderReadyTime) {
-      tab.prerender.firstPrerenderReadyTime = new Date().getTime();
+    // NOTE ability to allow page to decide is it ready or no
+    if (typeof result.value === 'boolean') {
+      if (!result.value) { return resolve(false) || debug('[prerender:checkIfPageIsDoneLoading] Page says NOT ready'); }
+      tab.prerender.firstReadyTime = tab.prerender.firstReadyTime || new Date().getTime();
+      debug('[prerender:checkIfPageIsDoneLoading] Page says ready at', new Date(tab.prerender.firstReadyTime).toISOString());
+    // NOTE check finishing all requests
+    } if (tab.prerender.numRequestsInFlight < 1) {
+      tab.prerender.firstReadyTime = tab.prerender.firstReadyTime || new Date().getTime();
+      debug('[prerender:checkIfPageIsDoneLoading] All page request was finished ar', new Date(tab.prerender.firstReadyTime).toISOString());
     }
-    const timeSpentAfterFirstPrerenderReady = (tab.prerender.firstPrerenderReadyTime && (new Date().getTime() - tab.prerender.firstPrerenderReadyTime)) || 0;
-
-    resolve(
-      (!shouldWaitForPrerenderReady && doneLoading) ||
-      (shouldWaitForPrerenderReady && prerenderReady && (doneLoading || timeSpentAfterFirstPrerenderReady > prerenderReadyDelay))
-    );
+    // NOTE we should give a bit time after page ready to render data in html
+    const readyDelay = tab.prerender.pageReadyDelay || chrome.options.pageReadyDelay;
+    if (tab.prerender.firstReadyTime + readyDelay < new Date().getTime()) { resolve(true); }
+    resolve(false);
   }).catch(error => {
     error.code = 504;
-    debug('[prerender:checkIfPageIsDoneLoading] unable to evaluate javascript on the page', error);
+    debug('[prerender:checkIfPageIsDoneLoading] Unable to evaluate javascript on the page', error);
     reject(error);
   });
 });
