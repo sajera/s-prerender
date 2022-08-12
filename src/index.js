@@ -8,9 +8,8 @@ import { createServer } from 'node:http';
 
 // local dependencies
 import redis from './redis.js';
-import CONFIG from './config.js';
 import prerender from './prerender/index.js';
-import { logError, log, debug } from './log.js'
+import { logError, log, debug, API, REDIS, PRERENDER, DEBUG } from './config.js';
 
 //
 export { logError };
@@ -19,15 +18,15 @@ export { logError };
 let READY;
 // NOTE create
 const api = createServer(middleware);
-// api.close(() => log('[api:stopped]', `http://${CONFIG.API.HOST}:${CONFIG.API.PORT}/`));
-log('[api:starting]', CONFIG.API);
-api.listen(CONFIG.API.PORT, CONFIG.API.HOST, async () => {
-  log('[api:started]', `http://${CONFIG.API.HOST}:${CONFIG.API.PORT}/`);
-  log('[redis:starting]', CONFIG.REDIS);
-  await redis.start(CONFIG.REDIS);
-  log('[redis:started]');
-  log('[prerender:starting]', CONFIG.PRERENDER);
-  await prerender.start(CONFIG.PRERENDER);
+// api.close(() => log('[api:stopped]', `http://${API.HOST}:${API.PORT}/`));
+log('[api:starting]', API);
+api.listen(API.PORT, API.HOST, async () => {
+  log('[api:started]', `http://${API.HOST}:${API.PORT}/`);
+  log('[redis:connecting]', REDIS);
+  await redis.start(REDIS);
+  log('[redis:connected]');
+  log('[prerender:starting]', PRERENDER);
+  await prerender.start(PRERENDER);
   log('[prerender:started]');
   READY = true;
 });
@@ -38,7 +37,7 @@ api.listen(CONFIG.API.PORT, CONFIG.API.HOST, async () => {
  * @param response
  */
 async function middleware (request, response) {
-  let uid = CONFIG.DEBUG && uuid();
+  let uid = DEBUG && uuid();
   uid && console.time(uid);
   const { pathname, query } = url.parse(request.url);
   const options = qs.parse(query);
@@ -66,7 +65,13 @@ async function middleware (request, response) {
     response.statusCode = error.code || 500;
     response.setHeader('Content-Type', 'text/plain');
     response.end(`[ERROR:${response.statusCode}] ${error.message}`);
-    logError('API', { method: request.method, pathname, error });
+    logError('API', {
+      method: request.method,
+      pathname,
+      message: error.message,
+      stack: error.stack,
+      code: error.code,
+    });
   }
   uid && console.timeEnd(uid);
 }

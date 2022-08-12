@@ -3,7 +3,7 @@
 import sanitise from 'sanitize-html';
 
 // local dependencies
-import { debug } from '../log.js';
+import { debug, delay } from '../config.js';
 import { chrome as browser } from './chrome.js';
 
 export default { start, render };
@@ -20,7 +20,7 @@ process.on('SIGINT', () => {
 async function start (config) {
   CONNECTED = false;
   await browser.spawn(config);
-  debug('[prerender:start]', config);
+  debug('[prerender:start]');
   browser.onClose(() => {
     debug('[prerender:stopped]', END);
     // debug('[prerender:stopped]', END) || !END && start(config)
@@ -34,32 +34,30 @@ async function render (url) {
   await waitForBrowserToConnect();
   const tab = await browser.openTab({ url, renderType: 'html' });
   debug('[prerender:tab]');
-  await browser.loadUrlThenWaitForPageLoadEvent(tab, url);
+  await browser.loadUrlThenWaitForPageLoadEvent(tab);
   debug('[prerender:loadUrlThenWaitForPageLoadEvent]');
-  // await browser.executeJavascript(tab, '');
-  // debug('[prerender:executeJavascript]', tab);
-  await browser.parseHtmlFromPage(tab);
+  // TODO remove - just example
+  await browser.executeJavascript(tab, `var c = document.getElementsByTagName('noscript'); while(c.length) c[0].remove();`);
+  debug('[prerender:executeJavascript]');
+  const html = await browser.parseHtmlFromPage(tab);
   debug('[prerender:parseHtmlFromPage]');
   await browser.closeTab(tab);
   debug('[prerender:closeTab] sanitize html');
   // NOTE escape "scripts", "noscript" and "styles"
-  return sanitise(tab.prerender.content, {
+  return sanitise(html, {
     allowedStyles: false,
     allowedAttributes: false,
-    allowedTags: sanitise.defaults.allowedTags.concat(['head', 'meta', 'title', 'link']),
-    exclusiveFilter: frame => frame.tag === 'link' && frame.attribs.rel === 'stylesheet',
+    allowedTags: sanitise.defaults.allowedTags.concat(['head', 'meta', 'title', 'link', 'img']),
+    // NOTE disallow links with "href"
+    // exclusiveFilter: frame => frame.tag === 'link' && frame.attribs.rel === 'stylesheet',
   });
 }
 
 // HELPERS
-const delay = (gap = 2e2) => new Promise(resolve => setTimeout(resolve, gap));
-async function waitForBrowserToConnect () {
-  let checks = 0;
-  while (checks < 100) {
-    ++checks;
-    if(++checks > 100) { throw { code: 503, message: `Timed out waiting for ${browser.name} connection` }; }
+const waitForBrowserToConnect = async (retries = 100) => {
+  while (retries-- > 0) {
+    if (CONNECTED) { return true; }
     await delay(2e2);
-    if (CONNECTED) { break; }
   }
+  throw { code: 503, message: `Timed out waiting for ${browser.name} connection` };
 }
-
