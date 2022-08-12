@@ -32,9 +32,11 @@ async function start (config) {
 
 async function render (url) {
   await waitForBrowserToConnect();
-  const tab = await browser.openTab({ url, renderType: 'html' });
+  const tab = await browser.openTab({ url });
   debug('[prerender:tab]');
+  // console.time('loadUrlThenWaitForPageLoadEvent');
   await browser.loadUrlThenWaitForPageLoadEvent(tab);
+  // console.timeEnd('loadUrlThenWaitForPageLoadEvent');
   debug('[prerender:loadUrlThenWaitForPageLoadEvent]');
   // TODO remove - just example
   await browser.executeJavascript(tab, `var c = document.getElementsByTagName('noscript'); while(c.length) c[0].remove();`);
