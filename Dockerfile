@@ -13,7 +13,7 @@ WORKDIR /home/node
 
 COPY package.json package-lock.json index.js src/ ./
 
-RUN npm install
+RUN npm install --no-package-lock
 
 EXPOSE 3000
 
