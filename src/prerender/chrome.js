@@ -73,10 +73,10 @@ chrome.openTab = async options => {
   tab.browser = browser;
   tab.prerender = options;
   tab.browserContextId = browserContextId;
-  // TODO WTF ?
-  tab.prerender.errors = [];
   tab.prerender.requests = {};
   tab.prerender.numRequestsInFlight = 0;
+  // TODO WTF ?
+  tab.prerender.errors = [];
 
   await chrome.setUpEvents(tab);
 
