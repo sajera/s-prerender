@@ -47,7 +47,7 @@ async function render (url) {
   return sanitise(html, {
     allowedStyles: false,
     allowedAttributes: false,
-    allowedTags: sanitise.defaults.allowedTags.concat(['head', 'meta', 'title', 'link']),
+    allowedTags: sanitise.defaults.allowedTags.concat(['head', 'meta', 'title', 'link', 'img']),
     exclusiveFilter: frame => frame.tag === 'link' && frame.attribs.rel === 'stylesheet',
   });
 }

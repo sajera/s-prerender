@@ -22,6 +22,17 @@ chrome.spawn = options => {
   return chrome.chromeChild = spawn(location, chrome.options.chromeFlags);
 };
 
+chrome.getChromeLocation = () => {
+  if (chrome.options.chromeLocation) { return chrome.options.chromeLocation; }
+  let platform = os.platform();
+  switch (platform) {
+    default: return null;
+    case 'linux': return '/usr/bin/google-chrome';
+    case 'win32': return 'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe';
+    case 'darwin': return '/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome';
+  }
+};
+
 chrome.onClose = callback => chrome.chromeChild.on('close', callback);
 
 chrome.kill = () => chrome.chromeChild && chrome.chromeChild.kill('SIGINT');
@@ -38,25 +49,14 @@ chrome.connect = () => new Promise(resolve => {
     connected = true;
     debug('[prerender:ready]', info);
     resolve(info);
-  }).catch(error => debug('[prerender:connect] Retrying connection to Chrome...', error, setTimeout(retry, 4e3)));
+  }).catch(error => debug('[prerender:connect] Retrying connection to browser...', error, setTimeout(retry, 4e3)));
 
   setTimeout(retry, 0);
 });
 
-chrome.getChromeLocation = () => {
-  if (chrome.options.chromeLocation) { return chrome.options.chromeLocation; }
-  let platform = os.platform();
-  switch (platform) {
-    default: return null;
-    case 'linux': return '/usr/bin/google-chrome';
-    case 'win32': return 'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe';
-    case 'darwin': return '/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome';
-  }
-};
-
 const connectToBrowser = async (target, port, retries = 5) => {
   try { return await CDP({ target, port }); } catch (error) {
-    debug(`[prerender:connectToBrowser] Cannot connect to browser port=${port} retries=${retries}`, error);
+    debug(`[prerender:connectToBrowser] Cannot connect to Browser tab/debug port=${port} retries=${retries}`, error);
     if (retries > 0) {
       await delay(5e2);
       return connectToBrowser(target, port, --retries);
@@ -108,9 +108,7 @@ chrome.setUpEvents = async tab => {
   // set overrides
   await Security.setOverrideCertificateErrors({ override: true });
   await Network.setUserAgentOverride({ userAgent: `${chrome.originalUserAgent} s-prerender (+https://github.com/sajera/s-prerender)` });
-
-  const bypass = !(chrome.options.enableServiceWorker || varBoolean(tab.prerender.enableServiceWorker));
-  await Network.setBypassServiceWorker({ bypass });
+  await Network.setBypassServiceWorker({ bypass: !(chrome.options.enableServiceWorker || varBoolean(tab.prerender.enableServiceWorker)) });
 
   // set up handlers
   Page.domContentEventFired(({ timestamp }) => {
@@ -118,9 +116,7 @@ chrome.setUpEvents = async tab => {
     tab.prerender.pageLoadInfo.domContentEventFiredMs = timestamp * 1e3;
   });
 
-  Page.loadEventFired(({ timestamp }) => {
-    tab.prerender.pageLoadInfo.loadEventFiredMs = timestamp * 1e3;
-  });
+  Page.loadEventFired(({ timestamp }) => tab.prerender.pageLoadInfo.loadEventFiredMs = timestamp * 1e3;);
 
   //if the page opens up a javascript dialog, lets try to close it after 1s
   Page.javascriptDialogOpening(() => setTimeout(() => Page.handleJavaScriptDialog({ accept: true }), 1e3));
