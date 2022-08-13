@@ -1,9 +1,9 @@
 
 // outsource dependencies
-import sanitise from 'sanitize-html';
+
 
 // local dependencies
-import { debug, delay } from '../config.js';
+import { DEBUG, debug, delay } from '../config.js';
 import { chrome as browser } from './chrome.js';
 
 export default { start, render };
@@ -32,34 +32,21 @@ async function start (config) {
 
 async function render (url) {
   await waitForBrowserToConnect();
-  const tab = await browser.openTab({ url });
   debug('[prerender:tab]');
-  // console.time('loadUrlThenWaitForPageLoadEvent');
-  await browser.loadUrlThenWaitForPageLoadEvent(tab);
-  // console.timeEnd('loadUrlThenWaitForPageLoadEvent');
+  const tab = await browser.openTab({ url });
   debug('[prerender:loadUrlThenWaitForPageLoadEvent]');
-  // TODO remove - just example
-  await browser.executeJavascript(tab, `var c = document.getElementsByTagName('noscript'); while(c.length) c[0].remove();`);
-  debug('[prerender:executeJavascript]');
-  const html = await browser.parseHtmlFromPage(tab);
+  DEBUG && console.time('loadUrlThenWaitForPageLoadEvent');
+  await browser.loadUrlThenWaitForPageLoadEvent(tab);
+  DEBUG && console.timeEnd('loadUrlThenWaitForPageLoadEvent');
+  // TODO ability to setup scripts via API
+  debug('[prerender:executeJavascript] scriptCleanHTML');
+  await browser.executeJavascript(tab, scriptCleanHTML);
   debug('[prerender:parseHtmlFromPage]');
+  const html = await browser.parseHtmlFromPage(tab);
+  debug('[prerender:closeTab]');
   await browser.closeTab(tab);
-  debug('[prerender:closeTab] sanitize html');
-  const result = sanitise(html, {
-    allowedStyles: false,
-    decodeEntities: false,
-    allowedAttributes: false,
-    allowedTags: sanitise.defaults.allowedTags.concat([
-      'head', 'body', 'meta', 'title', 'link', 'img', 'svg', 'input', 'label', 'button', 'textarea',
-      'img', 'br', 'hr'
-    ]),
-    // disallowedTagsMode: false,
-    // NOTE disallow links with "href"
-    // exclusiveFilter: frame => frame.tag === 'link' && frame.attribs.rel === 'stylesheet',
-  });
-  debug('[prerender:sanitizeHTML]');
-
-  return result;
+  // debug('[prerender:logs]', tab.prerender);
+  return html;
 }
 
 // HELPERS
@@ -70,3 +57,10 @@ const waitForBrowserToConnect = async (retries = 100) => {
   }
   throw { code: 503, message: `Timed out waiting for ${browser.name} connection` };
 }
+
+const scriptCleanHTML = `(tags => {
+  for(const tag of tags) {
+    const collection = document.getElementsByTagName(tag);
+    while(collection.length) collection[0].remove();
+  }
+})(['noscript', 'script', 'style'])`;

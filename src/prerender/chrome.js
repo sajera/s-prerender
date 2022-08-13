@@ -10,9 +10,7 @@ import { debug, delay, varBoolean, varNumber } from '../config.js';
 
 // configure
 export const chrome = { name: 'Chrome' };
-
-const ChromeConnectionClosed = 'ChromeConnectionClosed';
-const UnableToLoadURL = 'UnableToLoadURL';
+export default chrome;
 
 chrome.spawn = options => {
   chrome.options = options;
@@ -44,13 +42,11 @@ chrome.connect = () => new Promise(resolve => {
   const retry = () => CDP.Version({ port: chrome.options.browserDebuggingPort }).then(info => {
     chrome.originalUserAgent = info['User-Agent'];
     chrome.webSocketDebuggerURL = info.webSocketDebuggerUrl || 'ws://localhost:' + chrome.options.browserDebuggingPort + '/devtools/browser';
-
     clearTimeout(timeout);
     connected = true;
     debug('[prerender:ready]', info);
     resolve(info);
   }).catch(error => debug('[prerender:connect] Retrying connection to browser...', error, setTimeout(retry, 4e3)));
-
   setTimeout(retry, 0);
 });
 
@@ -73,13 +69,11 @@ chrome.openTab = async options => {
   tab.browser = browser;
   tab.prerender = options;
   tab.browserContextId = browserContextId;
-  tab.prerender.requests = {};
-  tab.prerender.numRequestsInFlight = 0;
-  // TODO WTF ?
   tab.prerender.errors = [];
-
+  tab.prerender.requests = {};
+  tab.prerender.remainingNum = 0;
+  // NOTE
   await chrome.setUpEvents(tab);
-
   return tab;
 };
 
@@ -90,161 +84,90 @@ chrome.closeTab = async tab => {
 };
 
 chrome.setUpEvents = async tab => {
-  const { Page, Security, DOM, Network, Log, Console } = tab;
-  await Promise.all([DOM.enable(), Page.enable(), Security.enable(), Network.enable(), Log.enable(), Console.enable()]);
-
-  //hold onto info that could be used later if saving a HAR file
-  tab.prerender.pageLoadInfo = {
-    url: tab.prerender.url,
-    firstRequestId: undefined,
-    firstRequestMs: undefined,
-    domContentEventFiredMs: undefined,
-    loadEventFiredMs: undefined,
-    entries: {},
-  };
-
-  // set overrides
+  const { Page, Security, DOM, Network } = tab;
+  // NOTE enable things
+  await Promise.all([DOM.enable(), Page.enable(), Security.enable(), Network.enable()]);
+  // NOTE ignore certificate errors of HTTPS
   await Security.setOverrideCertificateErrors({ override: true });
+  // TODO seems useless
+  // Security.certificateError(({ eventId }) => {
+  //   debug('[prerender:setUpEvents] Security.certificateError', eventId);
+  //   Security.handleCertificateError({ eventId, action: 'continue' })
+  //     .catch(error => debug('[prerender:setUpEvents] error handling certificate error:', error));
+  // });
+  // Network.dataReceived(responseData => debug('[prerender:setUpEvents] Network.dataReceived', responseData));
+  // Network.resourceChangedPriority(priorityData => debug('[prerender:setUpEvents] Network.resourceChangedPriority', priorityData));
+  // NOTE provide ability to know the page rendered in s-prerender environment
   await Network.setUserAgentOverride({ userAgent: `${chrome.originalUserAgent} s-prerender (+https://github.com/sajera/s-prerender)` });
-  await Network.setBypassServiceWorker({ bypass: !(chrome.options.enableServiceWorker || varBoolean(tab.prerender.enableServiceWorker)) });
-
-  // set up handlers
-  Page.domContentEventFired(({ timestamp }) => {
-    tab.prerender.domContentEventFired = true;
-    tab.prerender.pageLoadInfo.domContentEventFiredMs = timestamp * 1e3;
-  });
-
-  Page.loadEventFired(({ timestamp }) => tab.prerender.pageLoadInfo.loadEventFiredMs = timestamp * 1e3);
-
-  //if the page opens up a javascript dialog, lets try to close it after 1s
-  Page.javascriptDialogOpening(() => setTimeout(() => Page.handleJavaScriptDialog({ accept: true }), 1e3));
-
-  Security.certificateError(({ eventId }) => {
-    Security.handleCertificateError({ eventId, action: 'continue' })
-      .catch(error => debug('[prerender:setUpEvents] error handling certificate error:', error));
-  });
-
-  Network.requestWillBeSent(params => {
-    tab.prerender.numRequestsInFlight++;
-    tab.prerender.requests[params.requestId] = params.request.url;
-    if (tab.prerender.logRequests || chrome.options.logRequests) debug('[prerender:setUpEvents] +', tab.prerender.numRequestsInFlight, params.request.url);
-
-    if (!tab.prerender.initialRequestId) {
-      debug(`[prerender:setUpEvents] Initial request to ${params.request.url}`);
-      tab.prerender.initialRequestId = params.requestId;
-      tab.prerender.pageLoadInfo.firstRequestId = params.requestId;
-      tab.prerender.pageLoadInfo.firstRequestMs = params.timestamp * 1000;
-    }
-
-    tab.prerender.pageLoadInfo.entries[params.requestId] = {
-      requestParams: params,
-      responseParams: undefined,
-      responseLength: 0,
-      encodedResponseLength: undefined,
-      responseFinishedS: undefined,
-      responseFailedS: undefined,
-      responseBody: undefined,
-      responseBodyIsBase64: undefined,
-      newPriority: undefined
-    };
-
-    if (params.redirectResponse) {
-      //during a redirect, we don't get the responseReceived event for the original request,
-      //so lets decrement the number of requests in flight here.
-      //the original requestId is also reused for the redirected request
-      tab.prerender.numRequestsInFlight--;
-
-      let redirectEntry = tab.prerender.pageLoadInfo.entries[params.requestId];
-      redirectEntry.responseParams = { response: params.redirectResponse };
-      redirectEntry.responseFinishedS = params.timestamp;
-      redirectEntry.encodedResponseLength = params.redirectResponse.encodedDataLength;
-
-      if (tab.prerender.initialRequestId === params.requestId && !varBoolean(tab.prerender.followRedirects) && !chrome.options.followRedirects) {
-        debug(`[prerender:setUpEvents] Initial request redirected from ${params.request.url} with status code ${params.redirectResponse.status}`);
-        tab.prerender.receivedRedirect = true; //initial response of a 301 gets modified so we need to capture that we saw a redirect here
+  // NOTE disable service workers
+  await Network.setBypassServiceWorker({ bypass: true });
+  // NOTE close blocking dialogs lets try to close it after 0.6s
+  Page.javascriptDialogOpening(() => setTimeout(() => Page.handleJavaScriptDialog({ accept: true }), 6e2));
+  // NOTE listen event to know the resources was loaded
+  Page.domContentEventFired(({ timestamp }) => tab.prerender.domContentEventFired = timestamp);
+  // NOTE listen network requests
+  Network.requestWillBeSent(({ type, requestId, request, redirectResponse }) => {
+    tab.prerender.remainingNum++;
+    tab.prerender.requests[requestId] = `${type} => ${request.url}`;
+    !tab.prerender.initialRequestId && (tab.prerender.initialRequestId = requestId);
+    debug(`[prerender:setUpEvents] + Network.requestWillBeSent (${tab.prerender.remainingNum}) => ${requestId}`, tab.prerender.requests[requestId]);
+    /*******************************************************************************************
+     * during a redirect, we don't get the responseReceived event for the original request,
+     * so lets decrement the number of requests in flight here.
+     * the original requestId is also reused for the redirected request
+     *******************************************************************************************/
+    if (redirectResponse) {
+      tab.prerender.remainingNum--;
+      debug(`[prerender:setUpEvents] - Network.requestWillBeSent (${tab.prerender.remainingNum}) => ${requestId}`, tab.prerender.requests[requestId]);
+      // NOTE weather to follow redirect default false
+      const followRedirects = varBoolean(tab.prerender.followRedirects) || chrome.options.followRedirects;
+      if (tab.prerender.initialRequestId === requestId && !followRedirects) {
+        debug(`[prerender:setUpEvents] Initial request redirected ${redirectResponse.status} from ${request.url}`);
+        // NOTE initial response of a 301 gets modified so we need to capture that
+        tab.prerender.receivedRedirect = true;
         tab.prerender.lastRequestReceivedAt = new Date().getTime();
-        tab.prerender.statusCode = params.redirectResponse.status;
-        tab.prerender.headers = params.redirectResponse.headers;
-        tab.prerender.content = params.redirectResponse.statusText;
-
+        tab.prerender.statusCode = redirectResponse.status;
+        tab.prerender.headers = redirectResponse.headers;
+        tab.prerender.content = redirectResponse.statusText;
+        // NOTE drop remaining requests
         Page.stopLoading();
       }
     }
   });
-
-  Network.dataReceived(({ requestId, dataLength }) => {
-    const entry = tab.prerender.pageLoadInfo.entries[requestId];
-    if (!entry) { return; }
-    entry.responseLength += dataLength;
-  });
-
-  Network.responseReceived(params => {
-    let entry = tab.prerender.pageLoadInfo.entries[params.requestId];
-    if (entry) { entry.responseParams = params; }
-
-    if (params.requestId == tab.prerender.initialRequestId && !tab.prerender.receivedRedirect) {
-      debug(`[prerender:setUpEvents] Initial response from ${params.response.url} with status code ${params.response.status}`);
-      tab.prerender.statusCode = params.response.status;
-      tab.prerender.headers = params.response.headers;
-
-      //if we get a 304 from the server, turn it into a 200 on our end
-      if (tab.prerender.statusCode == 304) tab.prerender.statusCode = 200;
+  // NOTE listen network request results
+  Network.responseReceived(({ type, requestId, response }) => {
+    // NOTE mark results as dirty in case receiving errors
+    response.status >= 500 && response.status < 600 && (tab.prerender.dirtyRender = true);
+    if (requestId == tab.prerender.initialRequestId && !tab.prerender.receivedRedirect) {
+      debug(`[prerender:setUpEvents] Page loaded ${response.status} => ${response.url}`);
+      tab.prerender.statusCode = response.status;
+      tab.prerender.headers = response.headers;
+      // NOTE 304 from the server turn into 200
+      tab.prerender.statusCode == 304 && (tab.prerender.statusCode = 200);
     }
-
-    if (params.type === "EventSource") {
-      tab.prerender.numRequestsInFlight--;
+    // TODO
+    if (type === 'EventSource') {
+      tab.prerender.remainingNum--; // 0 ???
       tab.prerender.lastRequestReceivedAt = new Date().getTime();
-      if (tab.prerender.logRequests || chrome.options.logRequests) debug('[prerender:setUpEvents] -', tab.prerender.numRequestsInFlight, tab.prerender.requests[params.requestId]);
-      delete tab.prerender.requests[params.requestId];
-    }
-
-    if (params.response && params.response.status >= 500 && params.response.status < 600) { // 5XX
-      tab.prerender.dirtyRender = true;
+      debug(`[prerender:setUpEvents] - Network.responseReceived (${tab.prerender.remainingNum}) => ${requestId}`, tab.prerender.requests[requestId]);
     }
   });
-
-  Network.resourceChangedPriority(({ requestId, newPriority }) => {
-    let entry = tab.prerender.pageLoadInfo.entries[requestId];
-    if (!entry) { return; }
-    entry.newPriority = newPriority;
+  // NOTE listen network request loading done
+  Network.loadingFinished(({ requestId }) => {
+    tab.prerender.initialRequestId === requestId && debug('[prerender:setUpEvents] Initial request finished');
+    if (!tab.prerender.requests[requestId]) { return; }
+    tab.prerender.remainingNum--;
+    tab.prerender.lastRequestReceivedAt = new Date().getTime();
+    debug(`[prerender:setUpEvents] - Network.loadingFinished (${tab.prerender.remainingNum}) => ${requestId}`, tab.prerender.requests[requestId]);
   });
-
-  Network.loadingFinished(({ requestId, timestamp, encodedDataLength }) => {
-    const request = tab.prerender.requests[requestId];
-    if (request) {
-      if (tab.prerender.initialRequestId === requestId) {
-        debug(`[prerender:setUpEvents] Initial request finished ${request}`);
-      }
-
-      tab.prerender.numRequestsInFlight--;
-      tab.prerender.lastRequestReceivedAt = new Date().getTime();
-
-      if (tab.prerender.logRequests || chrome.options.logRequests) debug('[prerender:setUpEvents] -', tab.prerender.numRequestsInFlight, tab.prerender.requests[requestId]);
-      delete tab.prerender.requests[requestId];
-
-      let entry = tab.prerender.pageLoadInfo.entries[requestId];
-      if (!entry) { return; }
-      entry.encodedResponseLength = encodedDataLength;
-      entry.responseFinishedS = timestamp;
-    }
+  // NOTE Page.stopLoading will fire this event for all remaining requests
+  Network.loadingFailed(({ requestId }) => {
+    tab.prerender.initialRequestId === requestId && debug('[prerender:setUpEvents] Initial request failed to load');
+    if (!tab.prerender.requests[requestId]) { return; }
+    tab.prerender.remainingNum--;
+    tab.prerender.requests[requestId] = 'FAILED: ' + tab.prerender.requests[requestId];
+    debug(`[prerender:setUpEvents] - Network.loadingFailed (${tab.prerender.remainingNum}) => ${requestId}`, tab.prerender.requests[requestId]);
   });
-
-  //when a redirect happens and we call Page.stopLoading,
-  //all outstanding requests will fire this event
-  Network.loadingFailed((params) => {
-    if (tab.prerender.requests[params.requestId]) {
-      tab.prerender.numRequestsInFlight--;
-      if (tab.prerender.logRequests || chrome.options.logRequests) debug('[prerender:setUpEvents] -', tab.prerender.numRequestsInFlight, tab.prerender.requests[params.requestId]);
-      delete tab.prerender.requests[params.requestId];
-
-      let entry = tab.prerender.pageLoadInfo.entries[params.requestId];
-      if (entry) {
-        entry.responseFailedS = params.timestamp;
-      }
-    }
-  });
-
-  return tab;
 };
 
 chrome.loadUrlThenWaitForPageLoadEvent = tab => new Promise((resolve, reject) => {
@@ -265,81 +188,77 @@ chrome.loadUrlThenWaitForPageLoadEvent = tab => new Promise((resolve, reject) =>
       }).catch(error => {
         finished = true;
         debug('[prerender:loadUrlThenWaitForPageLoadEvent] Chrome connection closed during request', error);
-        tab.prerender.errors.push(ChromeConnectionClosed);
+        tab.prerender.errors.push({ prerender: 'Chrome connection closed during request', error });
         tab.prerender.statusCode = 504;
         reject(error);
       });
     };
-
+    // NOTE handle timeout for page rendering
     setTimeout(() => {
-      if (!finished) {
-        finished = true;
-        debug('[prerender:loadUrlThenWaitForPageLoadEvent] page timed out', tab.prerender.url);
-        const timeoutStatusCode = tab.prerender.timeoutStatusCode || 504;
-        if (timeoutStatusCode) { tab.prerender.statusCode = timeoutStatusCode; }
-        tab.prerender.timedout = true;
-        resolve();
-      }
+      if (finished) { return; }
+      debug('[prerender:loadUrlThenWaitForPageLoadEvent] Page timed out', tab.prerender.url);
+      tab.prerender.errors.push({ prerender: 'Page timed out' });
+      tab.prerender.statusCode = 504;
+      tab.prerender.timedout = true;
+      finished = true;
+      resolve();
     }, varNumber(tab.prerender.pageLoadTimeout) || chrome.options.pageLoadTimeout);
-
-    // Page.addScriptToEvaluateOnNewDocument({ source: 'window.prerenderReady = true' });
+    // NOTE a bit prepare tab view
     const width = parseInt(tab.prerender.width, 10) || 1440;
     const height = parseInt(tab.prerender.height, 10) || 718;
-
-    Emulation.setDeviceMetricsOverride({
-      height, screenHeight: height,
-      width, screenWidth: width,
-      deviceScaleFactor: 0,
-      mobile: false
-    });
-
-    Page.navigate({ url: tab.prerender.url }).then(result => {
-      tab.prerender.navigateError = result.errorText;
-      if (tab.prerender.navigateError && tab.prerender.navigateError !== 'net::ERR_ABORTED') {
-        debug(`[prerender:loadUrlThenWaitForPageLoadEvent] Navigation error: ${tab.prerender.navigateError}, url=${url}`);
+    Emulation.setDeviceMetricsOverride({ height, screenHeight: height, width, screenWidth: width, deviceScaleFactor: 0, mobile: false });
+    // NOTE weather to force awaiting from page updating the "prerenderReady" - in most cases will lead to render timeout
+    // Page.addScriptToEvaluateOnNewDocument({ source: 'window.prerenderReady = false;' });
+    //
+    Page.navigate({ url: tab.prerender.url }).then(({ errorText }) => {
+      if (errorText && errorText !== 'net::ERR_ABORTED') {
+        debug(`[prerender:loadUrlThenWaitForPageLoadEvent] Navigation error: ${errorText}`, tab.prerender.url);
+        tab.prerender.errors.push({ prerender: 'Navigation error', error: errorText });
+        tab.prerender.navigateError = errorText;
         Page.stopLoading();
       }
-
+      // TODO WTF ?
       if (typeof onNavigated === 'function') { return Promise.resolve(onNavigated()); }
     }).then(() => setTimeout(checkIfDone, pageDoneCheckInterval)).catch(error => {
-      debug('[prerender:loadUrlThenWaitForPageLoadEvent] invalid URL sent to Chrome:', tab.prerender.url, error);
-      tab.prerender.statusCode = 504;
+      debug('[prerender:loadUrlThenWaitForPageLoadEvent] Invalid URL sent to Browser:', tab.prerender.url);
+      tab.prerender.errors.push({ prerender: 'Invalid URL sent to Browser', error });
+      tab.prerender.statusCode = error.code = 504;
       finished = true;
       reject(error);
     });
   }).catch(error => {
-    debug('[prerender:loadUrlThenWaitForPageLoadEvent] unable to load URL', error);
-    error = 504;
+    debug('[prerender:loadUrlThenWaitForPageLoadEvent] Unable to load URL', tab.prerender.url);
+    tab.prerender.errors.push({ prerender: 'Unable to load URL', error });
+    tab.prerender.statusCode = error.code = 504;
     finished = true;
     reject(error);
   });
 });
 
 chrome.checkIfPageIsDoneLoading = tab => new Promise((resolve, reject) => {
-  debug('[prerender:checkIfPageIsDoneLoading] check');
-  // debug('[prerender:checkIfPageIsDoneLoading]', { ...tab.prerender, pageLoadInfo: null });
+  debug('[prerender:checkIfPageIsDoneLoading] remainingNum', tab.prerender.remainingNum);
   if (tab.prerender.navigateError) { return resolve(true); }
   if (tab.prerender.receivedRedirect) { return resolve(true); }
   if (!tab.prerender.domContentEventFired) { return resolve(false); }
-
   tab.Runtime.evaluate({ expression: 'window.prerenderReady' }).then(({ result }) => {
     // NOTE ability to allow page to decide is it ready or no
     if (typeof result.value === 'boolean') {
-      if (!result.value) { return resolve(false) || debug('[prerender:checkIfPageIsDoneLoading] Page says NOT ready'); }
+      if (!result.value) { return resolve(false) || debug('[prerender:checkIfPageIsDoneLoading] Page says NOT ready yet...'); }
       tab.prerender.firstReadyTime = tab.prerender.firstReadyTime || new Date().getTime();
       debug('[prerender:checkIfPageIsDoneLoading] Page says ready at', new Date(tab.prerender.firstReadyTime).toISOString());
     // NOTE check finishing all requests
-    } if (tab.prerender.numRequestsInFlight < 1) {
+    } if (tab.prerender.remainingNum < 1) {
       tab.prerender.firstReadyTime = tab.prerender.firstReadyTime || new Date().getTime();
-      debug('[prerender:checkIfPageIsDoneLoading] All page request was finished ar', new Date(tab.prerender.firstReadyTime).toISOString());
+      debug('[prerender:checkIfPageIsDoneLoading] All page request was finished at', new Date(tab.prerender.firstReadyTime).toISOString());
     }
     // NOTE we should give a bit time after page ready to render data in html
     const readyDelay = tab.prerender.pageReadyDelay || chrome.options.pageReadyDelay;
     if (tab.prerender.firstReadyTime + readyDelay < new Date().getTime()) { resolve(true); }
     resolve(false);
   }).catch(error => {
-    error.code = 504;
     debug('[prerender:checkIfPageIsDoneLoading] Unable to evaluate javascript on the page', error);
+    tab.prerender.errors.push({ prerender: 'Unable to evaluate javascript on the page', error });
+    error.code = 504;
     reject(error);
   });
 });
@@ -358,12 +277,19 @@ chrome.parseHtmlFromPage = async tab => {
     throw error;
   }
 
-  let { result: { value: doctype }} = await tab.Runtime.evaluate({ expression: 'JSON.stringify({ name: document.doctype.name, sid: document.doctype.systemId, pid: document.doctype.publicId })' });
-  doctype = JSON.parse(doctype);
-  const PUBLIC = doctype.pid ? ` PUBLIC "${doctype.pid}"` : doctype.sid ? ` SYSTEM "${doctype.sid}"`: '';
-
+  let DOCTYPE = '';
+  try {
+    let { result: { value: doctype }} = await tab.Runtime.evaluate({ expression: 'JSON.stringify({ name: document.doctype.name, sid: document.doctype.systemId, pid: document.doctype.publicId })' });
+    doctype = JSON.parse(doctype);
+    const PUBLIC = doctype.pid ? ` PUBLIC "${doctype.pid}"` : doctype.sid ? ` SYSTEM "${doctype.sid}"`: '';
+    DOCTYPE = `<!DOCTYPE ${doctype.name}${PUBLIC}>`;
+  } catch (error) {
+    debug('[prerender:parseHtmlFromPage] Unable to get DOCTYPE of the Page', error.message);
+    tab.prerender.errors.push({ prerender: 'Unable to get DOCTYPE of the Page', error });
+  }
   clearTimeout(timeout);
-  return `<!DOCTYPE ${doctype.name}${PUBLIC}>` + html;
+
+  return DOCTYPE + html;
 };
 
 chrome.executeJavascript = async (tab, expression) => {

@@ -31,11 +31,10 @@ export const PRERENDER = {
   chromeLocation: varString(process.env.CHROME_BIN),
   // chromeFlags: ['--no-sandbox', '--headless', '--disable-gpu', '--remote-debugging-port=9222', '--hide-scrollbars', '--disable-dev-shm-usage'],
   chromeFlags: varArray(process.env.CHROME_FLAGS),
-  enableServiceWorker: false,
   pageLoadTimeout: 2e4,       // Maximum time to page rendering
-  pageReadyDelay: 4e2,        // Give a bit time after last request to render data in html or trigger more requests
+  pageReadyDelay: 3e2,        // Give a bit time after last request to render data in html or trigger more requests
   pageDoneCheckInterval: 3e2, // How often page should be checked about ready state
-  // followRedirects: false,
+  followRedirects: false,     // Weather to follow redirect
 };
 /******************************************************
  *            variables parsers
@@ -63,5 +62,5 @@ const logWithTime = (text, data) => console.log(
   `\x1B[0m\x1B[37m[${new Date().toISOString()}]\x1B[39m\x1B[0m`,
   // `\x1B[0m\x1B[37m[${new Date().toLocaleDateString()}:${new Date().toLocaleTimeString()}]\x1B[39m\x1B[0m`,
   text,
-  data === undefined ? '' : JSON.stringify(data, null, 4),
+  data === undefined ? '' : DEBUG ? JSON.stringify(data, null, 4) : JSON.stringify(data),
 );

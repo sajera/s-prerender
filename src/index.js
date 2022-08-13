@@ -22,12 +22,12 @@ const api = createServer(middleware);
 log('[api:starting]', API);
 api.listen(API.PORT, API.HOST, async () => {
   log('[api:started]', `http://${API.HOST}:${API.PORT}/`);
-  log('[redis:connecting]', REDIS);
-  await redis.start(REDIS);
-  log('[redis:connected]');
   log('[prerender:starting]', PRERENDER);
   await prerender.start(PRERENDER);
   log('[prerender:started]');
+  log('[redis:connecting]', REDIS);
+  await redis.start(REDIS);
+  log('[redis:connected]');
   READY = true;
 });
 
@@ -41,7 +41,7 @@ async function middleware (request, response) {
   uid && console.time(uid);
   const { pathname, query } = url.parse(request.url);
   const options = qs.parse(query);
-  debug(`[api:request]`, { method: request.method, pathname, options });
+  log(`[api:request] ${request.method} ${pathname}`, options.url);
   const prerenderURL = qs.unescape(options.url);
   try {
     if (!READY) { throw { code: 503, message: 'Service not ready yet' }; }
@@ -51,7 +51,7 @@ async function middleware (request, response) {
       default: throw { code: 404, message: 'Not found' };
       case '/render':
         results = await redis.get(prerenderURL);
-        results && debug('[api:cache]', prerenderURL);
+        results && log('[api:cache]', prerenderURL);
         if (!results) { results = await refresh(prerenderURL); }
         break;
       case '/refresh':
@@ -78,6 +78,7 @@ async function middleware (request, response) {
 
 async function refresh (url) {
   const results = await prerender.render(url);
+  log('[api:generate]', url);
   await redis.set(url, results);
   return results;
 }
