@@ -22,12 +22,12 @@ const api = createServer(middleware);
 log('[api:starting]', API);
 api.listen(API.PORT, API.HOST, async () => {
   log('[api:started]', `http://${API.HOST}:${API.PORT}/`);
-  log('[redis:connecting]', REDIS);
-  await redis.start(REDIS);
-  log('[redis:connected]');
   log('[prerender:starting]', PRERENDER);
   await prerender.start(PRERENDER);
   log('[prerender:started]');
+  log('[redis:connecting]', REDIS);
+  await redis.start(REDIS);
+  log('[redis:connected]');
   READY = true;
 });
 

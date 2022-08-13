@@ -90,53 +90,46 @@ chrome.closeTab = async tab => {
 };
 
 chrome.setUpEvents = async tab => {
-  const { Page, Security, DOM, Network, Log, Console } = tab;
-  await Promise.all([DOM.enable(), Page.enable(), Security.enable(), Network.enable(), Log.enable(), Console.enable()]);
-
-  //hold onto info that could be used later if saving a HAR file
-  tab.prerender.pageLoadInfo = {
-    url: tab.prerender.url,
-    firstRequestId: undefined,
-    firstRequestMs: undefined,
-    domContentEventFiredMs: undefined,
-    loadEventFiredMs: undefined,
-    entries: {},
-  };
-
-  // set overrides
+  const { Page, Security, DOM, Network } = tab;
+  // NOTE enable things
+  await Promise.all([DOM.enable(), Page.enable(), Security.enable(), Network.enable()]);
+  // NOTE declare loading information
+  const pageLoadInfo = { firstRequestId: null, firstRequestMs: null, loadEventFiredMs: false, entries: {} };
+  // NOTE ignore certificate errors of HTTPS
   await Security.setOverrideCertificateErrors({ override: true });
+  // TODO seems useless
+  // Security.certificateError(({ eventId }) => {
+  //   debug('[prerender:setUpEvents] Security.certificateError', eventId);
+  //   Security.handleCertificateError({ eventId, action: 'continue' })
+  //     .catch(error => debug('[prerender:setUpEvents] error handling certificate error:', error));
+  // });
+  // NOTE provide ability to know the page rendered in s-prerender environment
   await Network.setUserAgentOverride({ userAgent: `${chrome.originalUserAgent} s-prerender (+https://github.com/sajera/s-prerender)` });
-  await Network.setBypassServiceWorker({ bypass: !(chrome.options.enableServiceWorker || varBoolean(tab.prerender.enableServiceWorker)) });
+  // NOTE disable service workers
+  await Network.setBypassServiceWorker({ bypass: true });
+  // NOTE close blocking dialogs lets try to close it after 0.6s
+  Page.javascriptDialogOpening(() => setTimeout(() => Page.handleJavaScriptDialog({ accept: true }), 6e2));
+  // NOTE listen event to know the resources was loaded
+  Page.domContentEventFired(({ timestamp }) => tab.prerender.domContentEventFired = timestamp);
 
-  // set up handlers
-  Page.domContentEventFired(({ timestamp }) => {
-    tab.prerender.domContentEventFired = true;
-    tab.prerender.pageLoadInfo.domContentEventFiredMs = timestamp * 1e3;
-  });
 
-  Page.loadEventFired(({ timestamp }) => tab.prerender.pageLoadInfo.loadEventFiredMs = timestamp * 1e3);
-
-  //if the page opens up a javascript dialog, lets try to close it after 1s
-  Page.javascriptDialogOpening(() => setTimeout(() => Page.handleJavaScriptDialog({ accept: true }), 1e3));
-
-  Security.certificateError(({ eventId }) => {
-    Security.handleCertificateError({ eventId, action: 'continue' })
-      .catch(error => debug('[prerender:setUpEvents] error handling certificate error:', error));
-  });
 
   Network.requestWillBeSent(params => {
     tab.prerender.numRequestsInFlight++;
     tab.prerender.requests[params.requestId] = params.request.url;
-    if (tab.prerender.logRequests || chrome.options.logRequests) debug('[prerender:setUpEvents] +', tab.prerender.numRequestsInFlight, params.request.url);
-
+    debug('[prerender:setUpEvents] + Network.requestWillBeSent', {
+      requestId: params.requestId,
+      flight: tab.prerender.numRequestsInFlight,
+      data: tab.prerender.requests[params.requestId]
+    });
     if (!tab.prerender.initialRequestId) {
       debug(`[prerender:setUpEvents] Initial request to ${params.request.url}`);
       tab.prerender.initialRequestId = params.requestId;
-      tab.prerender.pageLoadInfo.firstRequestId = params.requestId;
-      tab.prerender.pageLoadInfo.firstRequestMs = params.timestamp * 1000;
+      pageLoadInfo.firstRequestId = params.requestId;
+      pageLoadInfo.firstRequestMs = params.timestamp * 1000;
     }
 
-    tab.prerender.pageLoadInfo.entries[params.requestId] = {
+    pageLoadInfo.entries[params.requestId] = {
       requestParams: params,
       responseParams: undefined,
       responseLength: 0,
@@ -153,8 +146,13 @@ chrome.setUpEvents = async tab => {
       //so lets decrement the number of requests in flight here.
       //the original requestId is also reused for the redirected request
       tab.prerender.numRequestsInFlight--;
+      debug('[prerender:setUpEvents] - Network.requestWillBeSent', {
+        requestId: params.requestId,
+        flight: tab.prerender.numRequestsInFlight,
+        data: tab.prerender.requests[params.requestId]
+      });
 
-      let redirectEntry = tab.prerender.pageLoadInfo.entries[params.requestId];
+      let redirectEntry = pageLoadInfo.entries[params.requestId];
       redirectEntry.responseParams = { response: params.redirectResponse };
       redirectEntry.responseFinishedS = params.timestamp;
       redirectEntry.encodedResponseLength = params.redirectResponse.encodedDataLength;
@@ -173,13 +171,13 @@ chrome.setUpEvents = async tab => {
   });
 
   Network.dataReceived(({ requestId, dataLength }) => {
-    const entry = tab.prerender.pageLoadInfo.entries[requestId];
+    const entry = pageLoadInfo.entries[requestId];
     if (!entry) { return; }
     entry.responseLength += dataLength;
   });
 
   Network.responseReceived(params => {
-    let entry = tab.prerender.pageLoadInfo.entries[params.requestId];
+    let entry = pageLoadInfo.entries[params.requestId];
     if (entry) { entry.responseParams = params; }
 
     if (params.requestId == tab.prerender.initialRequestId && !tab.prerender.receivedRedirect) {
@@ -194,7 +192,11 @@ chrome.setUpEvents = async tab => {
     if (params.type === "EventSource") {
       tab.prerender.numRequestsInFlight--;
       tab.prerender.lastRequestReceivedAt = new Date().getTime();
-      if (tab.prerender.logRequests || chrome.options.logRequests) debug('[prerender:setUpEvents] -', tab.prerender.numRequestsInFlight, tab.prerender.requests[params.requestId]);
+      debug('[prerender:setUpEvents] - Network.responseReceived', {
+        requestId: params.requestId,
+        flight: tab.prerender.numRequestsInFlight,
+        data: tab.prerender.requests[params.requestId]
+      });
       delete tab.prerender.requests[params.requestId];
     }
 
@@ -204,7 +206,7 @@ chrome.setUpEvents = async tab => {
   });
 
   Network.resourceChangedPriority(({ requestId, newPriority }) => {
-    let entry = tab.prerender.pageLoadInfo.entries[requestId];
+    let entry = pageLoadInfo.entries[requestId];
     if (!entry) { return; }
     entry.newPriority = newPriority;
   });
@@ -218,11 +220,16 @@ chrome.setUpEvents = async tab => {
 
       tab.prerender.numRequestsInFlight--;
       tab.prerender.lastRequestReceivedAt = new Date().getTime();
+      debug('[prerender:setUpEvents] - Network.loadingFinished', {
+        requestId,
+        flight: tab.prerender.numRequestsInFlight,
+        data: tab.prerender.requests[requestId]
+      });
 
       if (tab.prerender.logRequests || chrome.options.logRequests) debug('[prerender:setUpEvents] -', tab.prerender.numRequestsInFlight, tab.prerender.requests[requestId]);
       delete tab.prerender.requests[requestId];
 
-      let entry = tab.prerender.pageLoadInfo.entries[requestId];
+      let entry = pageLoadInfo.entries[requestId];
       if (!entry) { return; }
       entry.encodedResponseLength = encodedDataLength;
       entry.responseFinishedS = timestamp;
@@ -237,7 +244,7 @@ chrome.setUpEvents = async tab => {
       if (tab.prerender.logRequests || chrome.options.logRequests) debug('[prerender:setUpEvents] -', tab.prerender.numRequestsInFlight, tab.prerender.requests[params.requestId]);
       delete tab.prerender.requests[params.requestId];
 
-      let entry = tab.prerender.pageLoadInfo.entries[params.requestId];
+      let entry = pageLoadInfo.entries[params.requestId];
       if (entry) {
         entry.responseFailedS = params.timestamp;
       }
@@ -296,7 +303,7 @@ chrome.loadUrlThenWaitForPageLoadEvent = tab => new Promise((resolve, reject) =>
     Page.navigate({ url: tab.prerender.url }).then(result => {
       tab.prerender.navigateError = result.errorText;
       if (tab.prerender.navigateError && tab.prerender.navigateError !== 'net::ERR_ABORTED') {
-        debug(`[prerender:loadUrlThenWaitForPageLoadEvent] Navigation error: ${tab.prerender.navigateError}, url=${url}`);
+        debug(`[prerender:loadUrlThenWaitForPageLoadEvent] Navigation error: ${tab.prerender.navigateError}, url=${tab.prerender.url}`);
         Page.stopLoading();
       }
 
@@ -317,7 +324,7 @@ chrome.loadUrlThenWaitForPageLoadEvent = tab => new Promise((resolve, reject) =>
 
 chrome.checkIfPageIsDoneLoading = tab => new Promise((resolve, reject) => {
   debug('[prerender:checkIfPageIsDoneLoading] check');
-  // debug('[prerender:checkIfPageIsDoneLoading]', { ...tab.prerender, pageLoadInfo: null });
+  // debug('[prerender:checkIfPageIsDoneLoading]', { ...tab.prerender, headers: null });
   if (tab.prerender.navigateError) { return resolve(true); }
   if (tab.prerender.receivedRedirect) { return resolve(true); }
   if (!tab.prerender.domContentEventFired) { return resolve(false); }
@@ -358,12 +365,16 @@ chrome.parseHtmlFromPage = async tab => {
     throw error;
   }
 
-  let { result: { value: doctype }} = await tab.Runtime.evaluate({ expression: 'JSON.stringify({ name: document.doctype.name, sid: document.doctype.systemId, pid: document.doctype.publicId })' });
-  doctype = JSON.parse(doctype);
-  const PUBLIC = doctype.pid ? ` PUBLIC "${doctype.pid}"` : doctype.sid ? ` SYSTEM "${doctype.sid}"`: '';
-
+  let DOCTYPE = '';
+  try {
+    let { result: { value: doctype }} = await tab.Runtime.evaluate({ expression: 'JSON.stringify({ name: document.doctype.name, sid: document.doctype.systemId, pid: document.doctype.publicId })' });
+    doctype = JSON.parse(doctype);
+    const PUBLIC = doctype.pid ? ` PUBLIC "${doctype.pid}"` : doctype.sid ? ` SYSTEM "${doctype.sid}"`: '';
+    DOCTYPE = `<!DOCTYPE ${doctype.name}${PUBLIC}>`;
+  } catch (error) { debug('[prerender:parseHtmlFromPage] Unable to get DOCTYPE of page', error.message); }
   clearTimeout(timeout);
-  return `<!DOCTYPE ${doctype.name}${PUBLIC}>` + html;
+
+  return DOCTYPE + html;
 };
 
 chrome.executeJavascript = async (tab, expression) => {
