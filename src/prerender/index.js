@@ -23,10 +23,9 @@ async function start (config) {
   debug('[prerender:start]');
   browser.onClose(() => {
     debug('[prerender:stopped]', END);
-    // debug('[prerender:stopped]', END) || !END && start(config)
+    // start(config);
   });
   await browser.connect();
-  // debug('[prerender:start]', { bin: browser.getChromeLocation() });
   CONNECTED = true;
 }
 
@@ -39,8 +38,10 @@ async function render (url) {
   await browser.loadUrlThenWaitForPageLoadEvent(tab);
   DEBUG && console.timeEnd('loadUrlThenWaitForPageLoadEvent');
   // TODO ability to setup scripts via API
-  debug('[prerender:executeJavascript] scriptCleanHTML');
-  await browser.executeJavascript(tab, scriptCleanHTML);
+  if (typeof browser.options.cleanupHtmlScript === 'string') {
+    debug('[prerender:executeJavascript] cleanupHtmlScript');
+    await browser.executeJavascript(tab, browser.options.cleanupHtmlScript);
+  }
   debug('[prerender:parseHtmlFromPage]');
   const html = await browser.parseHtmlFromPage(tab);
   debug('[prerender:closeTab]');
@@ -57,10 +58,3 @@ const waitForBrowserToConnect = async (retries = 100) => {
   }
   throw { code: 503, message: `Timed out waiting for ${browser.name} connection` };
 }
-
-const scriptCleanHTML = `(tags => {
-  for(const tag of tags) {
-    const collection = document.getElementsByTagName(tag);
-    while(collection.length) collection[0].remove();
-  }
-})(['noscript', 'script', 'style'])`;

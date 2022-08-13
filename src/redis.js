@@ -15,10 +15,7 @@ export async function start (config) {
   client.on('connect', () => debug('[redis:start]'));
   client.on('ready', () => debug('[redis:ready]'));
   client.on('end', () => debug('[redis:stopped]'));
-  client.on('error', error => logError('REDIS', {
-    message: error.message,
-    stack: error.stack,
-  }));
+  client.on('error', error => logError('REDIS', { message: error.message, stack: error.stack }));
   await client.connect();
 }
 

@@ -9,14 +9,13 @@ import { createServer } from 'node:http';
 // local dependencies
 import redis from './redis.js';
 import prerender from './prerender/index.js';
-import { logError, log, debug, API, REDIS, PRERENDER, DEBUG } from './config.js';
+import { logError, log, API, REDIS, PRERENDER, DEBUG } from './config.js';
 
 //
 export { logError };
 
 // configure
 let READY;
-// NOTE create
 const api = createServer(middleware);
 // api.close(() => log('[api:stopped]', `http://${API.HOST}:${API.PORT}/`));
 log('[api:starting]', API);
