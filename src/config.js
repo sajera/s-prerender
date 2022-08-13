@@ -27,14 +27,14 @@ export const REDIS = {
 export const PRERENDER = {
   browserDebuggingPort: varNumber(process.env.CHROME_DEBUGGING_PORT),
   forwardHeaders: varBoolean(process.env.CHROME_FORWARD_HEADERS),
-  cleanupHtmlScript: varString(process.env.CHROME_CLEANUP_HTML),
   chromeLocation: varString(process.env.CHROME_BIN),
-  // chromeFlags: ['--no-sandbox', '--headless', '--disable-gpu', '--remote-debugging-port=9222', '--hide-scrollbars', '--disable-dev-shm-usage'],
   chromeFlags: varArray(process.env.CHROME_FLAGS),
-  pageLoadTimeout: 2e4,       // Maximum time to page rendering
-  pageReadyDelay: 3e2,        // Give a bit time after last request to render data in html or trigger more requests
-  pageDoneCheckInterval: 3e2, // How often page should be checked about ready state
-  followRedirects: false,     // Weather to follow redirect
+  // chromeFlags: ['--no-sandbox', '--headless', '--disable-gpu', '--remote-debugging-port=9222', '--hide-scrollbars', '--disable-dev-shm-usage'],
+  pageLoadTimeout: varNumber(process.env.CHROME_PAGE_LOAD_TIMEOUT) || 2e4, // Maximum time to page rendering
+  pageReadyDelay: varNumber(process.env.CHROME_PAGE_READY_DELAY) || 3e2, // Give a bit time after last request to render data in html or trigger more requests
+  pageDoneCheckInterval: varNumber(process.env.CHROME_PAGE_DONE_CHECK_INTERVAL) || 3e2, // How often page should be checked about ready state
+  followRedirects: varBoolean(process.env.CHROME_FOLLOW_REDIREC) || false, // Weather to follow redirect
+  cleanupHtmlScript: varString(process.env.CHROME_CLEANUP_HTML_SCRIPT) || defaultCleanupHtmlScript(), // ability to pass string with JS to execute on all pages
 };
 /******************************************************
  *            variables parsers
@@ -51,6 +51,15 @@ export function varArray (value) {
 export function varString (value) {
   return /^(null|undefined)$/i.test(value) ? void 0 : value;
 }
+export function defaultCleanupHtmlScript () {
+  return `(tags => {
+  for(const tag of tags) {
+    const collection = document.getElementsByTagName(tag);
+    while(collection.length) collection[0].remove();
+  }
+})(['noscript', 'script', 'style'])`;
+}
+
 /******************************************************
  *        ¯\(ヅ)/¯ helpers ᕦ(ツ)ᕤ
  *****************************************************/
