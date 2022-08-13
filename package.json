@@ -16,7 +16,6 @@
     "chrome-remote-interface": "^0.31.3",
     "dotenv": "^16.0.1",
     "redis": "^4.2.0",
-    "sanitize-html": "^2.7.1",
     "uuid": "^8.3.2",
     "valid-url": "^1.0.9"
   },
