@@ -56,6 +56,11 @@ async function middleware (request, response) {
       case '/refresh':
         results = await refresh(prerenderURL);
         break;
+      case '/health':
+        const error = new Error('Under implementation');
+        error.code = 501;
+        throw error;
+        break;
     }
     response.statusCode = 200;
     response.setHeader('Content-Type', 'text/html');
