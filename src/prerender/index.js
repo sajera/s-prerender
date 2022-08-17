@@ -3,33 +3,32 @@
 
 
 // local dependencies
-import { DEBUG, debug, delay } from '../config.js';
 import { chrome as browser } from './chrome.js';
+import { DEBUG, debug, delay, log } from '../config.js';
 
-export default { start, render };
+// NOTE required interface for "prerender"
+export default { start, render, isReady };
 
 // configure
-let END;
 let CONNECTED;
 process.on('SIGINT', () => {
   browser.kill();
-  END = true;
   setTimeout(() => process.exit(), 5e2);
 });
 
-async function start (config) {
-  CONNECTED = false;
+export function isReady () { return CONNECTED; }
+
+export async function start (config) {
+  log('[prerender:starting]', config);
+  browser.kill();
   await browser.spawn(config);
-  debug('[prerender:start]');
-  browser.onClose(() => {
-    debug('[prerender:stopped]', END);
-    // start(config);
-  });
+  browser.onClose(() => log('[prerender:stopped]', CONNECTED = false));
   await browser.connect();
   CONNECTED = true;
+  log('[prerender:started]');
 }
 
-async function render (url) {
+export async function render (url) {
   await waitForBrowserToConnect();
   debug('[prerender:tab]');
   const tab = await browser.openTab({ url });

@@ -1,12 +1,12 @@
 {
   "name": "s-prerender",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
-  "description": "s-prerender",
-  "main": "index.js",
+  "description": "s-prerender is the Service to solve SPA problems with SEO",
+  "main": "src/index.js",
   "scripts": {
-    "start": "node index.js",
-    "start:dev": "nodemon index.js",
+    "start": "node src/index.js",
+    "start:dev": "nodemon src/index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Sajera: Serhii P <allsajera@gmail.com>",

@@ -22,7 +22,7 @@ EXPOSE 3000
 USER node
 WORKDIR $WORKDIR
 
-COPY --from=installer $WORKDIR/index.js $WORKDIR/package*.json ./
+COPY --from=installer $WORKDIR/package*.json ./
 COPY --from=installer $WORKDIR/node_modules node_modules/
 COPY --from=installer $WORKDIR/src src/
 
