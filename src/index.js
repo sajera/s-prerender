@@ -1,83 +1,63 @@
 
 // outsource dependencies
-import url from 'node:url';
 import qs from 'node:querystring';
-import { v4 as uuid } from 'uuid';
 import { isWebUri } from 'valid-url';
-import { createServer } from 'node:http';
 
 // local dependencies
-import redis from './redis.js';
+import api from './api/index.js';
+import cache from './cache/index.js';
 import prerender from './prerender/index.js';
-import { logError, log, API, REDIS, PRERENDER, DEBUG } from './config.js';
+import { logError, log, API, CACHE, PRERENDER } from './config.js';
 
-//
-export { logError };
+// NOTE log unhandled promise exception
+process.on('unhandledRejection', error => logError('[service:unhandledRejection]', error && {
+  message: error.message,
+  stack: error.stack,
+  code: error.code,
+}));
+// NOTE log process exception
+process.on('uncaughtException', error => logError('[service:uncaughtException]', error && {
+  message: error.message,
+  stack: error.stack,
+  code: error.code,
+}) || process.exit(1));
 
 // configure
 let READY;
-const api = createServer(middleware);
-// api.close(() => log('[api:stopped]', `http://${API.HOST}:${API.PORT}/`));
-log('[api:starting]', API);
-api.listen(API.PORT, API.HOST, async () => {
-  log('[api:started]', `http://${API.HOST}:${API.PORT}/`);
-  log('[prerender:starting]', PRERENDER);
-  await prerender.start(PRERENDER);
-  log('[prerender:started]');
-  log('[redis:connecting]', REDIS);
-  await redis.start(REDIS);
-  log('[redis:connected]');
-  READY = true;
-});
+// run all services
+Promise.all([
+  api.start(API),
+  cache.start(CACHE),
+  prerender.start(PRERENDER),
+]).then(() => log('[service:ready]', READY = true));
 
-/**
- * Primitive middleware
- * @param request
- * @param response
- */
-async function middleware (request, response) {
-  let uid = DEBUG && uuid();
-  uid && console.time(uid);
-  const { pathname, query } = url.parse(request.url);
-  const options = qs.parse(query);
-  log(`[api:request] ${request.method} ${pathname}`, options.url);
-  const prerenderURL = qs.unescape(options.url);
-  try {
-    if (!READY) { throw { code: 503, message: 'Service not ready yet' }; }
-    if (!isWebUri(options.url)) { throw { code: 400, message: `Invalid query parameter url "${options.url}"` }; }
-    let results;
-    switch (pathname) {
-      default: throw { code: 404, message: 'Not found' };
-      case '/render':
-        results = await redis.get(prerenderURL);
-        results && log('[api:cache]', prerenderURL);
-        if (!results) { results = await refresh(prerenderURL); }
-        break;
-      case '/refresh':
-        results = await refresh(prerenderURL);
-        break;
-    }
-    response.statusCode = 200;
-    response.setHeader('Content-Type', 'text/html');
-    response.end(results);
-  } catch (error) {
-    response.statusCode = error.code || 500;
-    response.setHeader('Content-Type', 'text/plain');
-    response.end(`[ERROR:${response.statusCode}] ${error.message}`);
-    logError('API', {
-      method: request.method,
-      pathname,
-      message: error.message,
-      stack: error.stack,
-      code: error.code,
-    });
-  }
-  uid && console.timeEnd(uid);
+api.middleware['/health'] = health;
+health.contentType = 'application/json';
+function health () {
+  const ready = READY && api.isReady() && cache.isReady() && prerender.isReady();
+  return JSON.stringify({ status: ready ? 'UP' : 'DOWN' });
 }
 
-async function refresh (url) {
+api.middleware['/render'] = render;
+render.contentType = 'text/html';
+async function render (request) {
+  if (!cache.isReady()) { throw { code: 503, message: 'Service not ready yet' }; }
+  const url = qs.unescape(qs.parse(request.url.query).url);
+  if (!isWebUri(url)) { throw { code: 400, message: `Invalid query parameter url "${url}"` }; }
+  const results = await cache.get(url);
+  results && log('[api:cache]', url);
+  return results || refresh(request);
+}
+
+api.middleware['/refresh'] = refresh;
+refresh.contentType = 'text/html';
+async function refresh (request) {
+  console.log(request.url.query);
+  if (!prerender.isReady() || !cache.isReady()) { throw { code: 503, message: 'Service not ready yet' }; }
+  const url = qs.unescape(qs.parse(request.url.query).url);
+  if (!isWebUri(url)) { throw { code: 400, message: `Invalid query parameter url "${url}"` }; }
   const results = await prerender.render(url);
   log('[api:generate]', url);
-  await redis.set(url, results);
+  await cache.set(url, results);
   return results;
 }

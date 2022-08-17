@@ -110,7 +110,7 @@ chrome.setUpEvents = async tab => {
     tab.prerender.remainingNum++;
     tab.prerender.requests[requestId] = `${type} => ${request.url}`;
     !tab.prerender.initialRequestId && (tab.prerender.initialRequestId = requestId);
-    debug(`[prerender:setUpEvents] + Network.requestWillBeSent (${tab.prerender.remainingNum}) => ${requestId}`, tab.prerender.requests[requestId]);
+    debug(`[prerender:setUpEvents] + Network.requestWillBeSent (${tab.prerender.remainingNum}) => ${requestId}`, String(tab.prerender.requests[requestId]).substring(0,150));
     /*******************************************************************************************
      * during a redirect, we don't get the responseReceived event for the original request,
      * so lets decrement the number of requests in flight here.
@@ -118,7 +118,7 @@ chrome.setUpEvents = async tab => {
      *******************************************************************************************/
     if (redirectResponse) {
       tab.prerender.remainingNum--;
-      debug(`[prerender:setUpEvents] - Network.requestWillBeSent (${tab.prerender.remainingNum}) => ${requestId}`, tab.prerender.requests[requestId]);
+      debug(`[prerender:setUpEvents] - Network.requestWillBeSent (${tab.prerender.remainingNum}) => ${requestId}`, String(tab.prerender.requests[requestId]).substring(0,150));
       // NOTE weather to follow redirect default false
       const followRedirects = varBoolean(tab.prerender.followRedirects) || chrome.options.followRedirects;
       if (tab.prerender.initialRequestId === requestId && !followRedirects) {
@@ -145,11 +145,11 @@ chrome.setUpEvents = async tab => {
       // NOTE 304 from the server turn into 200
       tab.prerender.statusCode == 304 && (tab.prerender.statusCode = 200);
     }
-    // TODO
+    // TODO investigate
     if (type === 'EventSource') {
       tab.prerender.remainingNum--; // 0 ???
       tab.prerender.lastRequestReceivedAt = new Date().getTime();
-      debug(`[prerender:setUpEvents] - Network.responseReceived (${tab.prerender.remainingNum}) => ${requestId}`, tab.prerender.requests[requestId]);
+      debug(`[prerender:setUpEvents] - Network.responseReceived (${tab.prerender.remainingNum}) => ${requestId}`, String(tab.prerender.requests[requestId]).substring(0,150));
     }
   });
   // NOTE listen network request loading done
@@ -158,7 +158,7 @@ chrome.setUpEvents = async tab => {
     if (!tab.prerender.requests[requestId]) { return; }
     tab.prerender.remainingNum--;
     tab.prerender.lastRequestReceivedAt = new Date().getTime();
-    debug(`[prerender:setUpEvents] - Network.loadingFinished (${tab.prerender.remainingNum}) => ${requestId}`, tab.prerender.requests[requestId]);
+    debug(`[prerender:setUpEvents] - Network.loadingFinished (${tab.prerender.remainingNum}) => ${requestId}`, String(tab.prerender.requests[requestId]).substring(0,150));
   });
   // NOTE Page.stopLoading will fire this event for all remaining requests
   Network.loadingFailed(({ requestId }) => {
@@ -166,7 +166,7 @@ chrome.setUpEvents = async tab => {
     if (!tab.prerender.requests[requestId]) { return; }
     tab.prerender.remainingNum--;
     tab.prerender.requests[requestId] = 'FAILED: ' + tab.prerender.requests[requestId];
-    debug(`[prerender:setUpEvents] - Network.loadingFailed (${tab.prerender.remainingNum}) => ${requestId}`, tab.prerender.requests[requestId]);
+    debug(`[prerender:setUpEvents] - Network.loadingFailed (${tab.prerender.remainingNum}) => ${requestId}`, String(tab.prerender.requests[requestId]).substring(0,150));
   });
 };
 

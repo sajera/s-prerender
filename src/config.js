@@ -8,11 +8,11 @@ dotenv.config({ override: false, debug: varBoolean(process.env.DEBUG) });
 export const DEBUG = varBoolean(process.env.DEBUG);
 
 export const API = {
-  PORT: varNumber(process.env.PORT) || 80,
-  HOST: varString(process.env.HOST) || '0.0.0.0',
+  port: varNumber(process.env.PORT) || 80,
+  host: varString(process.env.HOST) || '0.0.0.0',
 };
-
-export const REDIS = {
+// NOTE for now Redis only
+export const CACHE = {
   url: varString(process.env.REDIS_URL),
   // name: process.env.REDIS_NAME,
   // database: process.env.REDIS_DB,
