@@ -39,3 +39,8 @@ Will render URL in `Chrome` browser then return `HTML` only the first time. Afte
 Force reset `Redis` and render url in `Chrome` browser then return `html`.
 - **GET /refresh**
     - `curl 'http://localhost:3000/refresh?url=http://example.com/'`
+
+To know Service health
+- **GET /health**
+  - `curl 'http://localhost:3000/health'`
+  - `{ status: "UP" | "DOWN"  }`
