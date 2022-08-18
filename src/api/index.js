@@ -21,7 +21,7 @@ export function start (config) {
     api = createServer(middleware);
     log('[api:starting]', config);
     api.listen(config.port, config.host, () => {
-      log('[api:started]', `http://${config.port}:${config.host}/`);
+      log('[api:started]', `http://${config.host}:${config.port}/`);
       resolve();
     });
   });
