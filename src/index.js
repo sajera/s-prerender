@@ -1,13 +1,12 @@
 
 // outsource dependencies
 import qs from 'node:querystring';
-import { isWebUri } from 'valid-url';
 
 // local dependencies
 import api from './api/index.js';
 import cache from './cache/index.js';
 import prerender from './prerender/index.js';
-import { logError, log, API, CACHE, PRERENDER } from './config.js';
+import { isUrl, logError, log, API, CACHE, PRERENDER } from './config.js';
 
 // NOTE log unhandled promise exception
 process.on('unhandledRejection', error => logError('[service:unhandledRejection]', error && {
@@ -43,19 +42,24 @@ render.contentType = 'text/html';
 async function render (request) {
   if (!cache.isReady()) { throw { code: 503, message: 'Service not ready yet' }; }
   const url = qs.unescape(qs.parse(request.url.query).url);
-  if (!isWebUri(url)) { throw { code: 400, message: `Invalid query parameter url "${url}"` }; }
+  if (!isUrl(url)) { throw { code: 400, message: `Invalid query parameter url "${url}"` }; }
   const results = await cache.get(url);
-  results && log('[api:cache]', url);
-  return results || refresh(request);
+  if (results) {
+    log('[api:cache]', url);
+    return results;
+  }
+  if (API.renderFallback) {
+    return refresh(request);
+  }
+  throw { code: 404, message: `Cache empty for "${url}"` };
 }
 
 api.middleware['/refresh'] = refresh;
 refresh.contentType = 'text/html';
 async function refresh (request) {
-  console.log(request.url.query);
   if (!prerender.isReady() || !cache.isReady()) { throw { code: 503, message: 'Service not ready yet' }; }
   const url = qs.unescape(qs.parse(request.url.query).url);
-  if (!isWebUri(url)) { throw { code: 400, message: `Invalid query parameter url "${url}"` }; }
+  if (!isUrl(url)) { throw { code: 400, message: `Invalid query parameter url "${url}"` }; }
   const results = await prerender.render(url);
   log('[api:generate]', url);
   await cache.set(url, results);

@@ -10,6 +10,7 @@ export const DEBUG = varBoolean(process.env.DEBUG);
 export const API = {
   port: varNumber(process.env.PORT) || 80,
   host: varString(process.env.HOST) || '0.0.0.0',
+  renderFallback: varBoolean(process.env.RENDER_FALLBACK),
 };
 // NOTE for now Redis only
 export const CACHE = {
@@ -59,7 +60,6 @@ export function defaultCleanupHtmlScript () {
   }
 })(['noscript', 'script', 'style'])`;
 }
-
 /******************************************************
  *        ¯\(ヅ)/¯ helpers ᕦ(ツ)ᕤ
  *****************************************************/
@@ -73,3 +73,5 @@ const logWithTime = (text, data) => console.log(
   text,
   data === undefined ? '' : DEBUG ? JSON.stringify(data, null, 4) : JSON.stringify(data),
 );
+const urlRegExp = /(?:https?):\/\/(\w+:?\w*)?(\S+)(:\d+)?(\/|\/([\w#!:.?+=&%!\-\/]))?/;
+export const isUrl = url => urlRegExp.test(url);
