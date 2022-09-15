@@ -11,6 +11,7 @@ export const API = {
   port: varNumber(process.env.PORT) || 80,
   host: varString(process.env.HOST) || '0.0.0.0',
   renderFallback: varBoolean(process.env.RENDER_FALLBACK),
+  allowDomains: varArray(process.env.ALLOW_DOMAINS) || ['.'],
 };
 // NOTE for now Redis only
 export const CACHE = {
@@ -61,7 +62,7 @@ export function defaultCleanupHtmlScript () {
 })(['noscript', 'script', 'style'])`;
 }
 /******************************************************
- *        ¯\(ヅ)/¯ helpers ᕦ(ツ)ᕤ
+ *               HELPERS
  *****************************************************/
 export const delay = (gap = 2e2) => new Promise(resolve => setTimeout(resolve, gap));
 export const log = (text, info) => logWithTime(text, info);
@@ -73,5 +74,25 @@ const logWithTime = (text, data) => console.log(
   text,
   data === undefined ? '' : DEBUG ? JSON.stringify(data, null, 4) : JSON.stringify(data),
 );
+/**********************
+ *     ¯\(ヅ)/¯      *
+ *********************/
+export const suid = (base = 'XXXX') => base.replace(/[X|S|N|H]/g, sib => (
+  sib === 'X' ? Math.random()*32|0
+    : sib === 'N' ? Math.random()*10|0
+      : sib === 'H' ? Math.random()*16|0
+        : /*sib == 'S'*/Math.random()*32|10
+).toString(32));
+/**********************
+ *      ᕦ(ツ)ᕤ       *
+ *********************/
 const urlRegExp = /(?:https?):\/\/(\w+:?\w*)?(\S+)(:\d+)?(\/|\/([\w#!:.?+=&%!\-\/]))?/;
-export const isUrl = url => urlRegExp.test(url);
+export const isUrl = url => {
+  // NOTE is url at all
+  if (!urlRegExp.test(url)) { return false; }
+  // NOTE url should match at least one domain from allowed
+  for (let domain of API.allowDomains) {
+    const regExp = new RegExp(domain);
+    if (regExp.test(url)) { return true; }
+  }
+};

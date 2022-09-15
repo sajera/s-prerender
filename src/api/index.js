@@ -1,11 +1,10 @@
 
 // outsource dependencies
 import url from 'node:url';
-import { v4 as uuid } from 'uuid';
 import { createServer } from 'node:http';
 
 // local dependencies
-import { logError, log, DEBUG } from '../config.js';
+import { logError, log, suid, DEBUG } from '../config.js';
 
 // NOTE required interface for "api"
 export default { start, isReady, middleware };
@@ -28,7 +27,7 @@ export function start (config) {
 }
 
 export async function middleware (request, response) {
-  let uid = DEBUG && uuid();
+  let uid = DEBUG && suid();
   uid && console.time(uid);
   request.url = url.parse(request.url);
   log(`[api:request] ${uid} ${request.method}:${request.url.pathname}`);
