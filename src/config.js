@@ -10,7 +10,6 @@ export const DEBUG = varBoolean(process.env.DEBUG);
 export const API = {
   port: varNumber(process.env.PORT) || 80,
   host: varString(process.env.HOST) || '0.0.0.0',
-  renderFallback: varBoolean(process.env.RENDER_FALLBACK),
   allowDomains: varArray(process.env.ALLOW_DOMAINS) || ['.'],
 };
 // NOTE for now Redis only

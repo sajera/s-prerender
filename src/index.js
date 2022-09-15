@@ -30,14 +30,14 @@ Promise.all([
   prerender.start(PRERENDER),
 ]).then(() => log('[service:ready]', READY = true));
 
-api.middleware['/health'] = health;
+api.middleware.GET['/health'] = health;
 health.contentType = 'application/json';
 function health () {
   const ready = READY && api.isReady() && cache.isReady() && prerender.isReady();
   return JSON.stringify({ status: ready ? 'UP' : 'DOWN' });
 }
 
-api.middleware['/render'] = render;
+api.middleware.GET['/render'] = render;
 render.contentType = 'text/html';
 async function render (request) {
   if (!cache.isReady()) { throw { code: 503, message: 'Service not ready yet' }; }
@@ -48,13 +48,10 @@ async function render (request) {
     log('[api:cache]', url);
     return results;
   }
-  if (API.renderFallback) {
-    return refresh(request);
-  }
-  throw { code: 404, message: `Cache empty for "${url}"` };
+  return refresh(request);
 }
 
-api.middleware['/refresh'] = refresh;
+api.middleware.GET['/refresh'] = refresh;
 refresh.contentType = 'text/html';
 async function refresh (request) {
   if (!prerender.isReady() || !cache.isReady()) { throw { code: 503, message: 'Service not ready yet' }; }
@@ -64,4 +61,26 @@ async function refresh (request) {
   log('[api:generate]', url);
   await cache.set(url, results);
   return results;
+}
+
+api.middleware.GET['/cached'] = getCached;
+getCached.contentType = 'text/html';
+async function getCached (request) {
+  if (!cache.isReady()) { throw { code: 503, message: 'Service not ready yet' }; }
+  const url = qs.unescape(qs.parse(request.url.query).url);
+  if (!isUrl(url)) { throw { code: 400, message: `Invalid query parameter url "${url}"` }; }
+  const results = await cache.get(url);
+  if (!results) { throw { code: 404, message: `Cache empty for "${url}"` }; }
+  log('[api:cache]', url);
+  return results;
+}
+
+api.middleware.DELETE['/cached'] = deleteCached;
+deleteCached.contentType = 'text/plain';
+async function deleteCached (request) {
+  if (!cache.isReady()) { throw { code: 503, message: 'Service not ready yet' }; }
+  const url = qs.unescape(qs.parse(request.url.query).url);
+  if (!isUrl(url)) { throw { code: 400, message: `Invalid query parameter url "${url}"` }; }
+  await cache.del(url);
+  return 'OK';
 }
