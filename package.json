@@ -1,6 +1,6 @@
 {
   "name": "s-prerender",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "type": "module",
   "description": "s-prerender is the Service to solve SPA problems with SEO",
   "main": "src/index.js",
@@ -15,8 +15,7 @@
   "dependencies": {
     "chrome-remote-interface": "^0.31.3",
     "dotenv": "^16.0.1",
-    "redis": "^4.2.0",
-    "uuid": "^8.3.2"
+    "redis": "^4.2.0"
   },
   "devDependencies": {
     "nodemon": "^2.0.19"
