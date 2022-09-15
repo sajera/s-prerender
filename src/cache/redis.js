@@ -6,13 +6,14 @@ import { createClient } from 'redis';
 import { logError, debug, log } from '../config.js';
 
 // NOTE required interface for "cache"
-export default { start, set, get, isReady };
+export default { start, set, get, del, isReady };
 
 // configure
 let client;
 let CONNECTED;
 export function set (key, value) { return client.set(key, value); }
 export function get (key) { return client.get(key); }
+export function del (key) { return client.del(key); }
 export function isReady () { return CONNECTED; }
 
 export async function start (config) {

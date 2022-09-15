@@ -5,7 +5,7 @@ This app is a solution for SPA problems with SEO.
 
 ## Getting start
 Running on local environment the API - require instance of Redis [learn more..](https://redis.io/docs/getting-started/).
-Before start development locally, please make sure you have installed [Chrome browser](https://www.google.com/chrome/) and instance of [Redis](https://redis.io/) was run. ([MAC](https://tableplus.com/blog/2018/10/how-to-start-stop-restart-redis.html) & [Windows](https://riptutorial.com/redis/example/29962/installing-and-running-redis-server-on-windows))
+Before start development locally, please make sure you have installed [Chrome browser](https://www.google.com/chrome/) and instance of [Redis](https://redis.io/) was run. ([MAC](https://tableplus.com/blog/2018/10/how-to-start-stop-restart-redis.html) | [Windows](https://riptutorial.com/redis/example/29962/installing-and-running-redis-server-on-windows))
 
 **install dependencies**
 
@@ -32,7 +32,7 @@ Deployment using Docker Image require only `REDIS_URL`.
 - `PORT=*80`
 - `HOST=0.0.0.0`
 - `REDIS_URL=`
-
+- `ALLOW_DOMAINS=.`
 
 ---
 ### API
@@ -49,4 +49,11 @@ Deployment using Docker Image require only `REDIS_URL`.
   - **GET /refresh**
   - `curl 'http://localhost:3000/refresh?url=http://example.com/'`
 
+- Will get URL `HTML` content from the cache.
+  - **GET /cached**
+  - `curl 'http://localhost:3000/cached?url=http://example.com/'`
+
+- Will clear URL `HTML` content from the cache.
+  - **DELETE /cached**
+  - `curl -X 'DELETE' 'http://localhost:3000/cached?url=http://example.com/'`
 
