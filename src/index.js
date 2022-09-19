@@ -30,57 +30,88 @@ Promise.all([
   prerender.start(PRERENDER),
 ]).then(() => log('[service:ready]', READY = true));
 
+/******************************************************
+ * GET /health
+ *****************************************************/
 api.middleware.GET['/health'] = health;
 health.contentType = 'application/json';
 function health () {
-  const ready = READY && api.isReady() && cache.isReady() && prerender.isReady();
+  let ready = false;
+  try {
+    checkReadyState();
+    ready = true;
+  } catch (e) { }
   return JSON.stringify({ status: ready ? 'UP' : 'DOWN' });
 }
 
+/******************************************************
+ * GET /render?url=http://example.com/
+ *****************************************************/
 api.middleware.GET['/render'] = render;
 render.contentType = 'text/html';
-async function render (request) {
-  if (!cache.isReady()) { throw { code: 503, message: 'Service not ready yet' }; }
-  const url = qs.unescape(qs.parse(request.url.query).url);
-  if (!isUrl(url)) { throw { code: 400, message: `Invalid query parameter url "${url}"` }; }
+async function render (request, response, uid) {
+  checkReadyState();
+  const url = validUrl(request);
   const results = await cache.get(url);
   if (results) {
-    log('[api:cache]', url);
+    log(`[api:cache] ${uid}`, url);
     return results;
   }
   return refresh(request);
 }
 
+/******************************************************
+ * GET /refresh?url=http://example.com/
+ *****************************************************/
 api.middleware.GET['/refresh'] = refresh;
 refresh.contentType = 'text/html';
-async function refresh (request) {
-  if (!prerender.isReady() || !cache.isReady()) { throw { code: 503, message: 'Service not ready yet' }; }
-  const url = qs.unescape(qs.parse(request.url.query).url);
-  if (!isUrl(url)) { throw { code: 400, message: `Invalid query parameter url "${url}"` }; }
+async function refresh (request, response, uid) {
+  checkReadyState();
+  const url = validUrl(request);
   const results = await prerender.render(url);
-  log('[api:generate]', url);
+  log(`[api:generate] ${uid}`, url);
   await cache.set(url, results);
+  log(`[api:cached] ${uid}`, url);
   return results;
 }
 
+/******************************************************
+ * GET /cached?url=http://example.com/
+ *****************************************************/
 api.middleware.GET['/cached'] = getCached;
 getCached.contentType = 'text/html';
 async function getCached (request) {
-  if (!cache.isReady()) { throw { code: 503, message: 'Service not ready yet' }; }
-  const url = qs.unescape(qs.parse(request.url.query).url);
-  if (!isUrl(url)) { throw { code: 400, message: `Invalid query parameter url "${url}"` }; }
+  checkReadyState();
+  const url = validUrl(request);
   const results = await cache.get(url);
   if (!results) { throw { code: 404, message: `Cache empty for "${url}"` }; }
-  log('[api:cache]', url);
   return results;
 }
 
+/******************************************************
+ * DELETE /cached?url=http://example.com/
+ *****************************************************/
 api.middleware.DELETE['/cached'] = deleteCached;
 deleteCached.contentType = 'text/plain';
 async function deleteCached (request) {
-  if (!cache.isReady()) { throw { code: 503, message: 'Service not ready yet' }; }
-  const url = qs.unescape(qs.parse(request.url.query).url);
-  if (!isUrl(url)) { throw { code: 400, message: `Invalid query parameter url "${url}"` }; }
+  checkReadyState();
+  const url = validUrl(request);
   await cache.del(url);
   return 'OK';
+}
+
+/******************************************************
+ *            ///////////////////
+ *****************************************************/
+function checkReadyState () {
+  if (!api.isReady()) { throw { code: 503, message: 'Service(API) not ready yet' }; }
+  if (!cache.isReady()) { throw { code: 503, message: 'Service(CACHE) not ready yet' }; }
+  if (!prerender.isReady()) { throw { code: 503, message: 'Service(PRERENDER) not ready yet' }; }
+  return true;
+}
+
+function validUrl (request) {
+  const url = qs.unescape(qs.parse(request.url.query).url);
+  if (!isUrl(url)) { throw { code: 400, message: `Invalid query parameter url "${url}"` }; }
+  return url;
 }

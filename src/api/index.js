@@ -27,15 +27,15 @@ export function start (config) {
 }
 
 export async function middleware (request, response) {
-  let uid = DEBUG && suid('XXXX-NNN');
-  uid && console.time(uid);
+  const uid = suid('XXXX-NNN');
+  console.time(uid);
   request.url = url.parse(request.url);
-  log(`[api:request] ${uid} ${request.method}:${request.url.pathname}`);
+  log(`[api:request] ${uid} ${request.method}: ${request.url.pathname}`);
   try {
     const endpoints = middleware[request.method] || {};
     const endpoint = endpoints[request.url.pathname];
     if (!endpoint) { throw { code: 404, message: 'Not found' }; }
-    const results = await endpoint(request, response);
+    const results = await endpoint(request, response, uid);
     response.setHeader('Content-Type', endpoint.contentType || 'text/plain');
     response.statusCode = 200;
     response.end(results);
@@ -45,7 +45,7 @@ export async function middleware (request, response) {
     response.end(`[ERROR:${code}] ${message}`);
     logError(`API ${code}`, { [request.method]: request.url.pathname, message, stack });
   }
-  uid && console.timeEnd(uid);
+  console.timeEnd(uid);
 }
 Object.assign(middleware, {
   GET: {},
