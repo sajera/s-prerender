@@ -8,7 +8,7 @@ services:
 #    init: true
     tty: true
     environment:
-      DEBUG: true
+      DEBUG: 1
       PORT: 3000
       HOST: 0.0.0.0
       REDIS_URL: redis://cache:6379/0
