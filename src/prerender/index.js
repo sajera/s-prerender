@@ -53,6 +53,7 @@ export async function render (url) {
 const waitForBrowserToConnect = async (retries = 100) => {
   while (retries-- > 0) {
     if (CONNECTED) { return true; }
+    debug('[prerender:browser] Connecting...', retries);
     await delay(2e2);
   }
   throw { code: 503, message: `Timed out waiting for ${browser.name} connection` };
