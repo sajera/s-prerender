@@ -4,7 +4,7 @@
 
 // local dependencies
 import { chrome as browser } from './chrome.js';
-import { DEBUG, debug, delay, log } from '../config.js';
+import { DEBUG, debug, delay, log, suid } from '../config.js';
 
 // NOTE required interface for "prerender"
 export default { start, render, isReady };
@@ -33,9 +33,10 @@ export async function render (url) {
   debug('[prerender:tab]');
   const tab = await browser.openTab({ url });
   debug('[prerender:loadUrlThenWaitForPageLoadEvent]');
-  DEBUG && console.time('loadUrlThenWaitForPageLoadEvent');
+  const uid = DEBUG && suid('loadUrlThenWaitForPageLoadEvent-XXXX-NNN');
+  uid && console.time(uid);
   await browser.loadUrlThenWaitForPageLoadEvent(tab);
-  DEBUG && console.timeEnd('loadUrlThenWaitForPageLoadEvent');
+  uid && console.timeEnd(uid);
   // TODO ability to setup scripts via API
   if (typeof browser.options.cleanupHtmlScript === 'string') {
     debug('[prerender:executeJavascript] cleanupHtmlScript');
