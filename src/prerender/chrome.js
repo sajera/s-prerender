@@ -80,6 +80,8 @@ chrome.closeTab = async tab => {
   await tab.browser.Target.closeTarget({ targetId: tab.target });
   await tab.browser.Target.disposeBrowserContext({ browserContextId: tab.browserContextId });
   await tab.browser.close();
+  // NOTE provide ability to stop "checkIfPageIsDoneLoading"
+  tab.isClosed = true;
 };
 
 chrome.setUpEvents = async tab => {
@@ -236,6 +238,7 @@ chrome.loadUrlThenWaitForPageLoadEvent = tab => new Promise((resolve, reject) =>
 
 chrome.checkIfPageIsDoneLoading = tab => new Promise((resolve, reject) => {
   debug('[prerender:checkIfPageIsDoneLoading] remainingNum', tab.prerender.remainingNum);
+  if (tab.isClosed) { return reject({ code: 500, message: 'Stopped due to closed state of the browser tab' }); }
   if (tab.prerender.navigateError) { return resolve(true); }
   if (tab.prerender.receivedRedirect) { return resolve(true); }
   if (!tab.prerender.domContentEventFired) { return resolve(false); }
@@ -297,8 +300,10 @@ chrome.executeJavascript = (tab, expression) => new Promise((resolve, reject) =>
     reject(error);
   }, 6e2);
 
-  tab.Runtime.evaluate({ expression }).then(({ result: { value } }) => {
+  tab.Runtime.evaluate({ expression }).then(({ result: { value = null } }) => {
     clearTimeout(timeout);
-    resolve(value && JSON.parse(value));
-  });
+    let result;
+    try { result = JSON.parse(value); } catch (error) {}
+    resolve(result);
+  }).catch(reject);
 });

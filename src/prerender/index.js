@@ -28,35 +28,12 @@ export async function start (config) {
   log('[prerender:started]');
 }
 
-// export async function render (url) {
-//   await waitForBrowserToConnect();
-//   debug('[prerender:tab]');
-//   const tab = await browser.openTab({ url });
-//   debug('[prerender:loadUrlThenWaitForPageLoadEvent]');
-//   const uid = DEBUG && suid('loadUrlThenWaitForPageLoadEvent-XXXX-NNN');
-//   uid && console.time(uid);
-//   await browser.loadUrlThenWaitForPageLoadEvent(tab);
-//   uid && console.timeEnd(uid);
-//   // NOTE ability to setup scripts via API
-//   if (typeof browser.options.cleanupHtmlScript === 'string') {
-//     debug('[prerender:executeJavascript] cleanupHtmlScript');
-//     await browser.executeJavascript(tab, browser.options.cleanupHtmlScript);
-//   }
-//   debug('[prerender:parseHtmlFromPage]');
-//   const html = await browser.parseHtmlFromPage(tab);
-//   debug('[prerender:closeTab]');
-//   await browser.closeTab(tab);
-//   // debug('[prerender:logs]', tab.prerender);
-//   return html;
-// }
 // TODO ERROR:[service:unhandledRejection]
 export function render (url) {
   return new Promise(async (resolve, reject) => {
-    let tab, html;
+    let tab;
     const timeout = setTimeout(() => {
-      tab && browser.closeTab(tab)
-        .then(() => debug('[prerender:closeTab]', true))
-        .catch(error => debug('[prerender:closeTab]', error));
+      closeTab(tab);
       const error = new Error(`Timed out waiting for ${browser.name} rendering process`);
       error.code = 504;
       reject(error);
@@ -76,21 +53,26 @@ export function render (url) {
         await browser.executeJavascript(tab, browser.options.cleanupHtmlScript);
       }
       debug('[prerender:parseHtmlFromPage]');
-      html = await browser.parseHtmlFromPage(tab);
+      const html = await browser.parseHtmlFromPage(tab);
+      resolve(html);
     } catch (error) {
       reject(error);
     } finally {
       clearTimeout(timeout);
-      if (tab) {
-        await browser.closeTab(tab);
-        debug('[prerender:closeTab]');
-      }
+      closeTab(tab);
     }
-    resolve(html);
   });
 }
 
 // HELPERS
+const closeTab = tab => {
+  if (tab) {
+    tab && debug('[prerender:errors]', tab.prerender.errors);
+    browser.closeTab(tab)
+      .then(() => debug('[prerender:closeTab]', true))
+      .catch(error => debug('[prerender:closeTab]', error));
+  }
+}
 const waitForBrowserToConnect = async (retries = 100) => {
   while (retries-- > 0) {
     if (CONNECTED) { return true; }
