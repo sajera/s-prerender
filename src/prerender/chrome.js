@@ -295,7 +295,7 @@ chrome.executeJavascript = (tab, expression) => new Promise((resolve, reject) =>
     const error = new Error('Javascript executes timed out');
     error.code = 504;
     reject(error);
-  }, 5e2);
+  }, 6e2);
 
   tab.Runtime.evaluate({ expression }).then(({ result: { value } }) => {
     clearTimeout(timeout);

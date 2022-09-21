@@ -70,7 +70,7 @@ export function render (url) {
       uid && console.time(uid);
       await browser.loadUrlThenWaitForPageLoadEvent(tab);
       uid && console.timeEnd(uid);
-      // NOTE ability to setup scripts via API
+      // NOTE ability to set up scripts via API
       if (typeof browser.options.cleanupHtmlScript === 'string') {
         debug('[prerender:executeJavascript] cleanupHtmlScript');
         await browser.executeJavascript(tab, browser.options.cleanupHtmlScript);
