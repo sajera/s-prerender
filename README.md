@@ -11,7 +11,11 @@ Before start development locally, please make sure you have installed [Chrome br
 
 `npm install`
 
-**Run locally with watching file changes by [nodemon](https://www.npmjs.com/package/nodemon)**
+**Run prerender**
+
+`npm run start`
+
+**Run for local development with watching file changes by [nodemon](https://www.npmjs.com/package/nodemon)**
 
 `npm run start:dev`
 
