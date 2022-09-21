@@ -34,7 +34,7 @@ export const PRERENDER = {
   pageLoadTimeout: varNumber(process.env.CHROME_PAGE_LOAD_TIMEOUT) || 2e4, // Maximum time to page rendering
   pageReadyDelay: varNumber(process.env.CHROME_PAGE_READY_DELAY) || 3e2, // Give a bit time after last request to render data in html or trigger more requests
   pageDoneCheckInterval: varNumber(process.env.CHROME_PAGE_DONE_CHECK_INTERVAL) || 3e2, // How often page should be checked about ready state
-  followRedirects: varBoolean(process.env.CHROME_FOLLOW_REDIREC) || false, // Weather to follow redirect
+  followRedirects: varBoolean(process.env.CHROME_FOLLOW_REDIREC), // Weather to follow redirect
   cleanupHtmlScript: varString(process.env.CHROME_CLEANUP_HTML_SCRIPT) || defaultCleanupHtmlScript(), // ability to pass string with JS to execute on all pages
 };
 /******************************************************
@@ -68,7 +68,7 @@ export const log = (text, info) => logWithTime(text, info);
 export const logError = (text, error) => logWithTime(`\x1B[0m\x1B[31m(ERROR:${text})\x1B[39m\x1B[0m`, error);
 export const debug = (text, info) => DEBUG && logWithTime(`\x1B[0m\x1B[37m${text}\x1B[39m\x1B[0m`, info);
 const logWithTime = (text, data) => console.log(
-  `\x1B[0m\x1B[37m[${new Date().toISOString()}]\x1B[39m\x1B[0m`,
+  DEBUG ? `\x1B[0m\x1B[37m[${new Date().toISOString()}]\x1B[39m\x1B[0m` : `[${new Date().toISOString()}]`,
   // `\x1B[0m\x1B[37m[${new Date().toLocaleDateString()}:${new Date().toLocaleTimeString()}]\x1B[39m\x1B[0m`,
   text,
   data === undefined ? '' : DEBUG ? JSON.stringify(data, null, 4) : JSON.stringify(data),

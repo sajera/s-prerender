@@ -10,7 +10,6 @@ import { debug, delay, varBoolean, varNumber } from '../config.js';
 
 // configure
 export const chrome = { name: 'Chrome' };
-export default chrome;
 
 chrome.spawn = options => {
   chrome.options = options;
@@ -35,9 +34,9 @@ chrome.onClose = callback => chrome.chromeChild.on('close', callback);
 
 chrome.kill = () => chrome.chromeChild && chrome.chromeChild.kill('SIGINT');
 
-chrome.connect = () => new Promise(resolve => {
+chrome.connect = () => new Promise((resolve, reject) => {
   let connected = false;
-  const timeout = setTimeout(() => { throw new Error('Browser connection timed out'); }, 2e4);
+  const timeout = setTimeout(() => reject(new Error('Browser connection timed out')), 2e4);
 
   const retry = () => CDP.Version({ port: chrome.options.browserDebuggingPort }).then(info => {
     chrome.originalUserAgent = info['User-Agent'];
@@ -263,18 +262,18 @@ chrome.checkIfPageIsDoneLoading = tab => new Promise((resolve, reject) => {
   });
 });
 
-chrome.parseHtmlFromPage = async tab => {
+chrome.parseHtmlFromPage = tab => new Promise(async (resolve, reject) => {
   const timeout = setTimeout(() => {
     const error = new Error('Parse html timed out');
     error.code = 504;
-    throw error;
+    reject(error);
   }, 5e3);
 
   const { result: { value: html }} = await tab.Runtime.evaluate({ expression: 'window.document.firstElementChild.outerHTML;' });
   if (!html) {
     const error = new Error('Unable to parse HTML');
     error.code = 500;
-    throw error;
+    reject(error);
   }
 
   let DOCTYPE = '';
@@ -288,18 +287,18 @@ chrome.parseHtmlFromPage = async tab => {
     tab.prerender.errors.push({ prerender: 'Unable to get DOCTYPE of the Page', error });
   }
   clearTimeout(timeout);
+  resolve(DOCTYPE + html);
+});
 
-  return DOCTYPE + html;
-};
-
-chrome.executeJavascript = async (tab, expression) => {
+chrome.executeJavascript = (tab, expression) => new Promise((resolve, reject) => {
   const timeout = setTimeout(() => {
     const error = new Error('Javascript executes timed out');
     error.code = 504;
-    throw error;
+    reject(error);
   }, 5e2);
 
-  const { result: { value }} = await tab.Runtime.evaluate({ expression });
-  clearTimeout(timeout);
-  return value && JSON.parse(value);
-};
+  tab.Runtime.evaluate({ expression }).then(({ result: { value } }) => {
+    clearTimeout(timeout);
+    resolve(value && JSON.parse(value));
+  });
+});

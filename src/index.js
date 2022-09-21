@@ -49,14 +49,15 @@ function health () {
  *****************************************************/
 api.middleware.GET['/render'] = render;
 render.contentType = 'text/html';
-async function render (request, response, uid) {
+async function render (request) {
   checkReadyState();
   const url = validUrl(request);
   const results = await cache.get(url);
   if (results) {
-    log(`[api:cache] ${uid}`, url);
+    log('[api:from-cache]', url);
     return results;
   }
+  log('[api:no-cache]', url);
   return refresh(request);
 }
 
@@ -65,13 +66,13 @@ async function render (request, response, uid) {
  *****************************************************/
 api.middleware.GET['/refresh'] = refresh;
 refresh.contentType = 'text/html';
-async function refresh (request, response, uid) {
+async function refresh (request) {
   checkReadyState();
   const url = validUrl(request);
   const results = await prerender.render(url);
-  log(`[api:generate] ${uid}`, url);
+  log('[api:generate]', url);
   await cache.set(url, results);
-  log(`[api:cached] ${uid}`, url);
+  log('[api:to-cache]', url);
   return results;
 }
 

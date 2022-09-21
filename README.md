@@ -4,14 +4,18 @@ This app is a solution for SPA problems with SEO.
 
 
 ## Getting start
-Running on local environment the API - require instance of Redis [learn more..](https://redis.io/docs/getting-started/).
+Running on local environment the API - require instance of [Redis](https://redis.io/docs/getting-started/).
 Before start development locally, please make sure you have installed [Chrome browser](https://www.google.com/chrome/) and instance of [Redis](https://redis.io/) was run. ([MAC](https://tableplus.com/blog/2018/10/how-to-start-stop-restart-redis.html) | [Windows](https://riptutorial.com/redis/example/29962/installing-and-running-redis-server-on-windows))
 
 **install dependencies**
 
 `npm install`
 
-**Run locally with watching file changes by [nodemon](https://www.npmjs.com/package/nodemon)**
+**Run prerender**
+
+`npm run start`
+
+**Run for local development with watching file changes by [nodemon](https://www.npmjs.com/package/nodemon)**
 
 `npm run start:dev`
 
