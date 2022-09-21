@@ -31,6 +31,7 @@ export const PRERENDER = {
   chromeLocation: varString(process.env.CHROME_BIN),
   chromeFlags: varArray(process.env.CHROME_FLAGS),
   // chromeFlags: ['--no-sandbox', '--headless', '--disable-gpu', '--remote-debugging-port=9222', '--hide-scrollbars', '--disable-dev-shm-usage'],
+  renderTimeout: varNumber(process.env.CHROME_RENDER_TIMEOUT) || 5e4, // Maximum time for all pre-rendering process including connection and dilay
   pageLoadTimeout: varNumber(process.env.CHROME_PAGE_LOAD_TIMEOUT) || 2e4, // Maximum time to page rendering
   pageReadyDelay: varNumber(process.env.CHROME_PAGE_READY_DELAY) || 3e2, // Give a bit time after last request to render data in html or trigger more requests
   pageDoneCheckInterval: varNumber(process.env.CHROME_PAGE_DONE_CHECK_INTERVAL) || 3e2, // How often page should be checked about ready state
