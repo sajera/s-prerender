@@ -57,7 +57,7 @@ export function render (url) {
       tab && browser.closeTab(tab)
         .then(() => debug('[prerender:closeTab]', true))
         .catch(error => debug('[prerender:closeTab]', error));
-      const error = new Error('Browser rendering process timeout');
+      const error = new Error(`Timed out waiting for ${browser.name} rendering process`);
       error.code = 504;
       reject(error);
     }, browser.options.renderTimeout);
