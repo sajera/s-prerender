@@ -36,7 +36,8 @@ Deployment using `Dockerfile` require only `REDIS_URL`.
 `REDIS_URL=` connection to Redis within your environment
 
 > Defaults
-- `PORT=*80`
+- `PORT=3000`
+- `DEBUG=false`
 - `HOST=0.0.0.0`
 - `ALLOW_DOMAINS=.`
 - `CHROME_DEBUGGING_PORT=9222`
