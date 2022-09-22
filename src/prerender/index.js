@@ -33,13 +33,12 @@ export function render (url) {
   return new Promise(async (resolve, reject) => {
     let tab;
     const timeout = setTimeout(() => {
-      closeTab(tab);
+      browser.closeTab(tab)
       const error = new Error(`Timed out waiting for ${browser.name} rendering process`);
       error.code = 504;
       reject(error);
     }, browser.options.renderTimeout);
     try {
-      await waitForBrowserToConnect();
       debug('[prerender:tab]');
       tab = await browser.openTab({ url });
       debug('[prerender:loadUrlThenWaitForPageLoadEvent]');
@@ -56,28 +55,11 @@ export function render (url) {
       const html = await browser.parseHtmlFromPage(tab);
       resolve(html);
     } catch (error) {
+      // tab && debug('[prerender:errors]', tab.prerender.errors);
       reject(error);
     } finally {
       clearTimeout(timeout);
-      closeTab(tab);
+      browser.closeTab(tab)
     }
   });
-}
-
-// HELPERS
-const closeTab = tab => {
-  if (tab) {
-    tab && debug('[prerender:errors]', tab.prerender.errors);
-    browser.closeTab(tab)
-      .then(() => debug('[prerender:closeTab]', true))
-      .catch(error => debug('[prerender:closeTab]', error));
-  }
-}
-const waitForBrowserToConnect = async (retries = 100) => {
-  while (retries-- > 0) {
-    if (CONNECTED) { return true; }
-    debug('[prerender:browser] Connecting...', retries);
-    await delay(2e2);
-  }
-  throw { code: 503, message: `Timed out waiting for ${browser.name} connection` };
 }

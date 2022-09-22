@@ -76,7 +76,16 @@ chrome.openTab = async options => {
   return tab;
 };
 
-chrome.closeTab = async tab => {
+// NOTE unbreakable
+chrome.closeTab = tab => {
+  if (tab && !tab.isClosed) {
+    debug('[prerender:errors]', tab.prerender.errors);
+    closeTab(tab)
+      .then(() => debug('[prerender:closeTab]', true))
+      .catch(error => debug('[prerender:closeTab]', error));
+  }
+}
+const closeTab = async tab => {
   await tab.browser.Target.closeTarget({ targetId: tab.target });
   await tab.browser.Target.disposeBrowserContext({ browserContextId: tab.browserContextId });
   await tab.browser.close();
@@ -258,8 +267,8 @@ chrome.checkIfPageIsDoneLoading = tab => new Promise((resolve, reject) => {
     if (tab.prerender.firstReadyTime + readyDelay < new Date().getTime()) { resolve(true); }
     resolve(false);
   }).catch(error => {
-    debug('[prerender:checkIfPageIsDoneLoading] Unable to evaluate javascript on the page', error);
-    tab.prerender.errors.push({ prerender: 'Unable to evaluate javascript on the page', error });
+    debug('[prerender:checkIfPageIsDoneLoading] Unable to evaluate javascript on the Page', error);
+    tab.prerender.errors.push({ prerender: 'Unable to evaluate javascript on the Page', error });
     error.code = 504;
     reject(error);
   });
@@ -293,17 +302,21 @@ chrome.parseHtmlFromPage = tab => new Promise(async (resolve, reject) => {
   resolve(DOCTYPE + html);
 });
 
-chrome.executeJavascript = (tab, expression) => new Promise((resolve, reject) => {
+chrome.executeJavascript = (tab, expression) => new Promise(resolve => {
   const timeout = setTimeout(() => {
-    const error = new Error('Javascript executes timed out');
-    error.code = 504;
-    reject(error);
-  }, 6e2);
+    tab.prerender.errors.push({ prerender: 'Javascript executes timed out' });
+    debug('[prerender:executeJavascript] Javascript executes timed out');
+    resolve();
+  }, 8e2);
 
   tab.Runtime.evaluate({ expression }).then(({ result: { value = null } }) => {
     clearTimeout(timeout);
     let result;
     try { result = JSON.parse(value); } catch (error) {}
     resolve(result);
-  }).catch(reject);
+  }).catch(error => {
+    debug('[prerender:executeJavascript] Unable to evaluate javascript on the Page', error.message);
+    tab.prerender.errors.push({ prerender: 'Unable to evaluate javascript on the Page', error });
+    resolve();
+  });
 });
