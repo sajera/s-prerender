@@ -8,7 +8,7 @@ dotenv.config({ override: false, debug: varBoolean(process.env.DEBUG) });
 export const DEBUG = varBoolean(process.env.DEBUG);
 
 export const API = {
-  port: varNumber(process.env.PORT) || 80,
+  port: varNumber(process.env.PORT) || 3000,
   host: varString(process.env.HOST) || '0.0.0.0',
   allowDomains: varArray(process.env.ALLOW_DOMAINS) || ['.'],
 };
@@ -27,7 +27,6 @@ export const CACHE = {
 };
 export const PRERENDER = {
   browserDebuggingPort: varNumber(process.env.CHROME_DEBUGGING_PORT),
-  forwardHeaders: varBoolean(process.env.CHROME_FORWARD_HEADERS),
   chromeLocation: varString(process.env.CHROME_BIN),
   chromeFlags: varArray(process.env.CHROME_FLAGS),
   // chromeFlags: ['--no-sandbox', '--headless', '--disable-gpu', '--remote-debugging-port=9222', '--hide-scrollbars', '--disable-dev-shm-usage'],
