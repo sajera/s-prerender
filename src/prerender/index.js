@@ -28,34 +28,38 @@ export async function start (config) {
   log('[prerender:started]');
 }
 
-export async function render (url) {
-  await waitForBrowserToConnect();
-  debug('[prerender:tab]');
-  const tab = await browser.openTab({ url });
-  debug('[prerender:loadUrlThenWaitForPageLoadEvent]');
-  const uid = DEBUG && suid('loadUrlThenWaitForPageLoadEvent-XXXX-NNN');
-  uid && console.time(uid);
-  await browser.loadUrlThenWaitForPageLoadEvent(tab);
-  uid && console.timeEnd(uid);
-  // TODO ability to setup scripts via API
-  if (typeof browser.options.cleanupHtmlScript === 'string') {
-    debug('[prerender:executeJavascript] cleanupHtmlScript');
-    await browser.executeJavascript(tab, browser.options.cleanupHtmlScript);
-  }
-  debug('[prerender:parseHtmlFromPage]');
-  const html = await browser.parseHtmlFromPage(tab);
-  debug('[prerender:closeTab]');
-  await browser.closeTab(tab);
-  // debug('[prerender:logs]', tab.prerender);
-  return html;
-}
-
-// HELPERS
-const waitForBrowserToConnect = async (retries = 100) => {
-  while (retries-- > 0) {
-    if (CONNECTED) { return true; }
-    debug('[prerender:browser] Connecting...', retries);
-    await delay(2e2);
-  }
-  throw { code: 503, message: `Timed out waiting for ${browser.name} connection` };
+// TODO ERROR:[service:unhandledRejection]
+export function render (url) {
+  return new Promise(async (resolve, reject) => {
+    let tab;
+    const timeout = setTimeout(() => {
+      browser.closeTab(tab);
+      const error = new Error(`Timed out waiting for ${browser.name} rendering process`);
+      error.code = 504;
+      reject(error);
+    }, browser.options.renderTimeout);
+    try {
+      debug('[prerender:tab]');
+      tab = await browser.openTab({ url });
+      debug('[prerender:loadUrlThenWaitForPageLoadEvent]');
+      const uid = DEBUG && suid('loadUrlThenWaitForPageLoadEvent-XXXX-NNN');
+      uid && console.time(uid);
+      await browser.loadUrlThenWaitForPageLoadEvent(tab);
+      uid && console.timeEnd(uid);
+      // NOTE ability to set up scripts via API
+      if (typeof browser.options.cleanupHtmlScript === 'string') {
+        debug('[prerender:executeJavascript] cleanupHtmlScript');
+        await browser.executeJavascript(tab, browser.options.cleanupHtmlScript);
+      }
+      debug('[prerender:parseHtmlFromPage]');
+      const html = await browser.parseHtmlFromPage(tab);
+      resolve(html);
+    } catch (error) {
+      // tab && debug('[prerender:errors]', tab.prerender.errors);
+      reject(error);
+    } finally {
+      clearTimeout(timeout);
+      browser.closeTab(tab)
+    }
+  });
 }

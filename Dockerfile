@@ -1,29 +1,21 @@
-FROM node:16-alpine as installer
-
-WORKDIR /opt/app
-
-COPY . ./
-RUN npm install --no-package-lock
-
 FROM node:16-alpine
 
-ARG WORKDIR=/opt/app
-
-RUN apk add --no-cache chromium && \
+RUN apk add --update-cache chromium && \
     rm -rf /var/cache/apk/* /tmp/*
 
-ENV CHROME_BIN=/usr/bin/chromium-browser \
+ENV DEBUG=false \
     CHROME_DEBUGGING_PORT=9222 \
-    CHROME_FORWARD_HEADERS=true \
-    CHROME_FLAGS=--no-sandbox,--headless,--disable-gpu,--remote-debugging-port=9222,--hide-scrollbars,--disable-dev-shm-usage
-
-EXPOSE 3000
+    CHROME_BIN=/usr/bin/chromium-browser \
+    CHROME_FLAGS="--no-sandbox,--headless,--disable-gpu,--remote-debugging-port=9222,--hide-scrollbars,--disable-dev-shm-usage"
 
 USER node
-WORKDIR $WORKDIR
+WORKDIR /home/node
 
-COPY --from=installer $WORKDIR/package*.json ./
-COPY --from=installer $WORKDIR/node_modules node_modules/
-COPY --from=installer $WORKDIR/src src/
+COPY package.json package-lock.json .env ./
+COPY src/ ./src
+
+RUN npm install --no-package-lock
+
+EXPOSE 3636
 
 CMD ["npm", "run", "start"]

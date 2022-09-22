@@ -5,21 +5,15 @@ services:
   main:
     build:
       context: .
-#    init: true
     tty: true
     environment:
       DEBUG: 1
-      PORT: 3000
-      HOST: 0.0.0.0
+      PORT: 3636
       REDIS_URL: redis://cache:6379/0
-      CHROME_FORWARD_HEADERS: 1
-      CHROME_DEBUGGING_PORT: 9222
-      CHROME_BIN: /usr/bin/chromium-browser
-      CHROME_FLAGS: --no-sandbox,--headless,--disable-gpu,--remote-debugging-port=9222,--hide-scrollbars,--disable-dev-shm-usage
     depends_on:
       - cache
     ports:
-      - '3000:3000'
+      - '3636:3636'
     command: npm run start:dev
     volumes:
       - .:/home/node/

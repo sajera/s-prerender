@@ -76,10 +76,21 @@ chrome.openTab = async options => {
   return tab;
 };
 
-chrome.closeTab = async tab => {
+// NOTE unbreakable
+chrome.closeTab = tab => {
+  if (tab && !tab.isClosed) {
+    debug('[prerender:errors]', tab.prerender.errors);
+    closeTab(tab)
+      .then(() => debug('[prerender:closeTab]', true))
+      .catch(error => debug('[prerender:closeTab]', error));
+  }
+}
+const closeTab = async tab => {
   await tab.browser.Target.closeTarget({ targetId: tab.target });
   await tab.browser.Target.disposeBrowserContext({ browserContextId: tab.browserContextId });
   await tab.browser.close();
+  // NOTE provide ability to stop "checkIfPageIsDoneLoading"
+  tab.isClosed = true;
 };
 
 chrome.setUpEvents = async tab => {
@@ -170,6 +181,7 @@ chrome.setUpEvents = async tab => {
 };
 
 chrome.loadUrlThenWaitForPageLoadEvent = tab => new Promise((resolve, reject) => {
+  if (tab.isClosed) { return reject({ code: 500, message: 'Stopped due to closed state of the browser tab' }); }
   let finished = false;
   const { Page, Emulation } = tab;
 
@@ -186,8 +198,8 @@ chrome.loadUrlThenWaitForPageLoadEvent = tab => new Promise((resolve, reject) =>
         if (!doneLoading && !finished) { setTimeout(checkIfDone, pageDoneCheckInterval); }
       }).catch(error => {
         finished = true;
-        debug('[prerender:loadUrlThenWaitForPageLoadEvent] Chrome connection closed during request', error);
-        tab.prerender.errors.push({ prerender: 'Chrome connection closed during request', error });
+        debug('[prerender:loadUrlThenWaitForPageLoadEvent] Chrome connection closed during request', error.message);
+        tab.prerender.errors.push({ prerender: 'Chrome connection closed during request', error: error.message });
         tab.prerender.statusCode = 504;
         reject(error);
       });
@@ -220,14 +232,14 @@ chrome.loadUrlThenWaitForPageLoadEvent = tab => new Promise((resolve, reject) =>
       if (typeof onNavigated === 'function') { return Promise.resolve(onNavigated()); }
     }).then(() => setTimeout(checkIfDone, pageDoneCheckInterval)).catch(error => {
       debug('[prerender:loadUrlThenWaitForPageLoadEvent] Invalid URL sent to Browser:', tab.prerender.url);
-      tab.prerender.errors.push({ prerender: 'Invalid URL sent to Browser', error });
+      tab.prerender.errors.push({ prerender: 'Invalid URL sent to Browser', error: error.message });
       tab.prerender.statusCode = error.code = 504;
       finished = true;
       reject(error);
     });
   }).catch(error => {
     debug('[prerender:loadUrlThenWaitForPageLoadEvent] Unable to load URL', tab.prerender.url);
-    tab.prerender.errors.push({ prerender: 'Unable to load URL', error });
+    tab.prerender.errors.push({ prerender: 'Unable to load URL', error: error.message });
     tab.prerender.statusCode = error.code = 504;
     finished = true;
     reject(error);
@@ -236,6 +248,7 @@ chrome.loadUrlThenWaitForPageLoadEvent = tab => new Promise((resolve, reject) =>
 
 chrome.checkIfPageIsDoneLoading = tab => new Promise((resolve, reject) => {
   debug('[prerender:checkIfPageIsDoneLoading] remainingNum', tab.prerender.remainingNum);
+  if (tab.isClosed) { return reject({ code: 500, message: 'Stopped due to closed state of the browser tab' }); }
   if (tab.prerender.navigateError) { return resolve(true); }
   if (tab.prerender.receivedRedirect) { return resolve(true); }
   if (!tab.prerender.domContentEventFired) { return resolve(false); }
@@ -255,14 +268,15 @@ chrome.checkIfPageIsDoneLoading = tab => new Promise((resolve, reject) => {
     if (tab.prerender.firstReadyTime + readyDelay < new Date().getTime()) { resolve(true); }
     resolve(false);
   }).catch(error => {
-    debug('[prerender:checkIfPageIsDoneLoading] Unable to evaluate javascript on the page', error);
-    tab.prerender.errors.push({ prerender: 'Unable to evaluate javascript on the page', error });
+    debug('[prerender:checkIfPageIsDoneLoading] Unable to evaluate javascript on the Page', error.message);
+    tab.prerender.errors.push({ prerender: 'Unable to evaluate javascript on the Page', error: error.message });
     error.code = 504;
     reject(error);
   });
 });
 
 chrome.parseHtmlFromPage = tab => new Promise(async (resolve, reject) => {
+  if (tab.isClosed) { return reject({ code: 500, message: 'Stopped due to closed state of the browser tab' }); }
   const timeout = setTimeout(() => {
     const error = new Error('Parse html timed out');
     error.code = 504;
@@ -284,21 +298,28 @@ chrome.parseHtmlFromPage = tab => new Promise(async (resolve, reject) => {
     DOCTYPE = `<!DOCTYPE ${doctype.name}${PUBLIC}>`;
   } catch (error) {
     debug('[prerender:parseHtmlFromPage] Unable to get DOCTYPE of the Page', error.message);
-    tab.prerender.errors.push({ prerender: 'Unable to get DOCTYPE of the Page', error });
+    tab.prerender.errors.push({ prerender: 'Unable to get DOCTYPE of the Page', error: error.message });
   }
   clearTimeout(timeout);
   resolve(DOCTYPE + html);
 });
 
 chrome.executeJavascript = (tab, expression) => new Promise((resolve, reject) => {
+  if (tab.isClosed) { return reject({ code: 500, message: 'Stopped due to closed state of the browser tab' }); }
   const timeout = setTimeout(() => {
-    const error = new Error('Javascript executes timed out');
-    error.code = 504;
-    reject(error);
-  }, 5e2);
+    tab.prerender.errors.push({ prerender: 'Javascript executes timed out' });
+    debug('[prerender:executeJavascript] Javascript executes timed out');
+    resolve();
+  }, 8e2);
 
-  tab.Runtime.evaluate({ expression }).then(({ result: { value } }) => {
+  tab.Runtime.evaluate({ expression }).then(({ result: { value = null } }) => {
     clearTimeout(timeout);
-    resolve(value && JSON.parse(value));
+    let result;
+    try { result = JSON.parse(value); } catch (error) {}
+    resolve(result);
+  }).catch(error => {
+    debug('[prerender:executeJavascript] Unable to evaluate javascript on the Page', error.message);
+    tab.prerender.errors.push({ prerender: 'Unable to evaluate javascript on the Page', error: error.message });
+    resolve();
   });
 });
