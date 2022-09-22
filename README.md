@@ -68,3 +68,17 @@ Deployment using `Dockerfile` require only `REDIS_URL`.
   - **DELETE /cached**
   - `curl -X 'DELETE' 'http://localhost:3636/cached?url=http://example.com/'`
 
+# TODO
+- [x] Render SPA page to get HTML
+- [x] Cache HTML
+- [x] Refresh cached HTML
+- [x] Cache unlimited but controlled via API
+- [x] Health status
+- [x] Base environment
+- [x] Docker image
+- [x] Docker for local development
+- [x] Domain limitation
+- [ ] Queue for rendering
+- [ ] Accumulate Sitemap
+- [ ] Different cache technology
+- [ ] Different queue technology
