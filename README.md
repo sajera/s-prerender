@@ -36,7 +36,7 @@ Deployment using `Dockerfile` require only `REDIS_URL`.
 `REDIS_URL=` connection to Redis within your environment
 
 > Defaults
-- `PORT=3000`
+- `PORT=3636`
 - `DEBUG=false`
 - `HOST=0.0.0.0`
 - `ALLOW_DOMAINS=.`
@@ -49,22 +49,22 @@ Deployment using `Dockerfile` require only `REDIS_URL`.
 ### API
 - To know Service health
   - **GET /health**
-  - `curl 'http://localhost:3000/health'`
+  - `curl 'http://localhost:3636/health'`
   - `{ status: "UP" | "DOWN"  }`
 
 - Will render URL in `Chrome` browser then return `HTML` only the first time. After providing `HTML` content from the cache.
   - **GET /render**
-  - `curl 'http://localhost:3000/render?url=http://example.com/'`
+  - `curl 'http://localhost:3636/render?url=http://example.com/'`
 
 - Force reset cache and render url in `Chrome` browser then return `html`.
   - **GET /refresh**
-  - `curl 'http://localhost:3000/refresh?url=http://example.com/'`
+  - `curl 'http://localhost:3636/refresh?url=http://example.com/'`
 
 - Will get URL `HTML` content from the cache.
   - **GET /cached**
-  - `curl 'http://localhost:3000/cached?url=http://example.com/'`
+  - `curl 'http://localhost:3636/cached?url=http://example.com/'`
 
 - Will clear URL `HTML` content from the cache.
   - **DELETE /cached**
-  - `curl -X 'DELETE' 'http://localhost:3000/cached?url=http://example.com/'`
+  - `curl -X 'DELETE' 'http://localhost:3636/cached?url=http://example.com/'`
 

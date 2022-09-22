@@ -16,6 +16,6 @@ COPY src/ ./src
 
 RUN npm install --no-package-lock
 
-EXPOSE 3000
+EXPOSE 3636
 
 CMD ["npm", "run", "start"]

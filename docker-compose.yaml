@@ -8,12 +8,12 @@ services:
     tty: true
     environment:
       DEBUG: 1
-      PORT: 3000
+      PORT: 3636
       REDIS_URL: redis://cache:6379/0
     depends_on:
       - cache
     ports:
-      - '3000:3000'
+      - '3636:3636'
     command: npm run start:dev
     volumes:
       - .:/home/node/

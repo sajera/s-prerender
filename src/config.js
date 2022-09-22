@@ -8,8 +8,8 @@ dotenv.config({ override: false, debug: varBoolean(process.env.DEBUG) });
 export const DEBUG = varBoolean(process.env.DEBUG);
 
 export const API = {
-  port: varNumber(process.env.PORT) || 3000,
-  host: varString(process.env.HOST) || '0.0.0.0',
+  port: varNumber(process.env.PORT),
+  host: varString(process.env.HOST),
   allowDomains: varArray(process.env.ALLOW_DOMAINS) || ['.'],
 };
 // NOTE for now Redis only
