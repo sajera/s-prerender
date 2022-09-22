@@ -181,6 +181,7 @@ chrome.setUpEvents = async tab => {
 };
 
 chrome.loadUrlThenWaitForPageLoadEvent = tab => new Promise((resolve, reject) => {
+  if (tab.isClosed) { return reject({ code: 500, message: 'Stopped due to closed state of the browser tab' }); }
   let finished = false;
   const { Page, Emulation } = tab;
 
@@ -275,6 +276,7 @@ chrome.checkIfPageIsDoneLoading = tab => new Promise((resolve, reject) => {
 });
 
 chrome.parseHtmlFromPage = tab => new Promise(async (resolve, reject) => {
+  if (tab.isClosed) { return reject({ code: 500, message: 'Stopped due to closed state of the browser tab' }); }
   const timeout = setTimeout(() => {
     const error = new Error('Parse html timed out');
     error.code = 504;
@@ -302,7 +304,8 @@ chrome.parseHtmlFromPage = tab => new Promise(async (resolve, reject) => {
   resolve(DOCTYPE + html);
 });
 
-chrome.executeJavascript = (tab, expression) => new Promise(resolve => {
+chrome.executeJavascript = (tab, expression) => new Promise((resolve, reject) => {
+  if (tab.isClosed) { return reject({ code: 500, message: 'Stopped due to closed state of the browser tab' }); }
   const timeout = setTimeout(() => {
     tab.prerender.errors.push({ prerender: 'Javascript executes timed out' });
     debug('[prerender:executeJavascript] Javascript executes timed out');

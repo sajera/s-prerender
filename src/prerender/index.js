@@ -33,7 +33,7 @@ export function render (url) {
   return new Promise(async (resolve, reject) => {
     let tab;
     const timeout = setTimeout(() => {
-      browser.closeTab(tab)
+      browser.closeTab(tab);
       const error = new Error(`Timed out waiting for ${browser.name} rendering process`);
       error.code = 504;
       reject(error);
