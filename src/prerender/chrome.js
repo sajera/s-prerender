@@ -198,8 +198,8 @@ chrome.loadUrlThenWaitForPageLoadEvent = tab => new Promise((resolve, reject) =>
         if (!doneLoading && !finished) { setTimeout(checkIfDone, pageDoneCheckInterval); }
       }).catch(error => {
         finished = true;
-        debug('[prerender:loadUrlThenWaitForPageLoadEvent] Chrome connection closed during request', error);
-        tab.prerender.errors.push({ prerender: 'Chrome connection closed during request', error });
+        debug('[prerender:loadUrlThenWaitForPageLoadEvent] Chrome connection closed during request', error.message);
+        tab.prerender.errors.push({ prerender: 'Chrome connection closed during request', error: error.message });
         tab.prerender.statusCode = 504;
         reject(error);
       });
@@ -232,14 +232,14 @@ chrome.loadUrlThenWaitForPageLoadEvent = tab => new Promise((resolve, reject) =>
       if (typeof onNavigated === 'function') { return Promise.resolve(onNavigated()); }
     }).then(() => setTimeout(checkIfDone, pageDoneCheckInterval)).catch(error => {
       debug('[prerender:loadUrlThenWaitForPageLoadEvent] Invalid URL sent to Browser:', tab.prerender.url);
-      tab.prerender.errors.push({ prerender: 'Invalid URL sent to Browser', error });
+      tab.prerender.errors.push({ prerender: 'Invalid URL sent to Browser', error: error.message });
       tab.prerender.statusCode = error.code = 504;
       finished = true;
       reject(error);
     });
   }).catch(error => {
     debug('[prerender:loadUrlThenWaitForPageLoadEvent] Unable to load URL', tab.prerender.url);
-    tab.prerender.errors.push({ prerender: 'Unable to load URL', error });
+    tab.prerender.errors.push({ prerender: 'Unable to load URL', error: error.message });
     tab.prerender.statusCode = error.code = 504;
     finished = true;
     reject(error);
@@ -268,8 +268,8 @@ chrome.checkIfPageIsDoneLoading = tab => new Promise((resolve, reject) => {
     if (tab.prerender.firstReadyTime + readyDelay < new Date().getTime()) { resolve(true); }
     resolve(false);
   }).catch(error => {
-    debug('[prerender:checkIfPageIsDoneLoading] Unable to evaluate javascript on the Page', error);
-    tab.prerender.errors.push({ prerender: 'Unable to evaluate javascript on the Page', error });
+    debug('[prerender:checkIfPageIsDoneLoading] Unable to evaluate javascript on the Page', error.message);
+    tab.prerender.errors.push({ prerender: 'Unable to evaluate javascript on the Page', error: error.message });
     error.code = 504;
     reject(error);
   });
@@ -298,7 +298,7 @@ chrome.parseHtmlFromPage = tab => new Promise(async (resolve, reject) => {
     DOCTYPE = `<!DOCTYPE ${doctype.name}${PUBLIC}>`;
   } catch (error) {
     debug('[prerender:parseHtmlFromPage] Unable to get DOCTYPE of the Page', error.message);
-    tab.prerender.errors.push({ prerender: 'Unable to get DOCTYPE of the Page', error });
+    tab.prerender.errors.push({ prerender: 'Unable to get DOCTYPE of the Page', error: error.message });
   }
   clearTimeout(timeout);
   resolve(DOCTYPE + html);
@@ -319,7 +319,7 @@ chrome.executeJavascript = (tab, expression) => new Promise((resolve, reject) =>
     resolve(result);
   }).catch(error => {
     debug('[prerender:executeJavascript] Unable to evaluate javascript on the Page', error.message);
-    tab.prerender.errors.push({ prerender: 'Unable to evaluate javascript on the Page', error });
+    tab.prerender.errors.push({ prerender: 'Unable to evaluate javascript on the Page', error: error.message });
     resolve();
   });
 });
