@@ -2,7 +2,18 @@
 // outsource dependencies
 import dotenv from 'dotenv';
 
-// local dependencies
+// NOTE log unhandled promise exception
+process.on('unhandledRejection', error => logError('[service:unhandledRejection]', error && {
+  message: error.message,
+  stack: error.stack,
+  code: error.code,
+}));
+// NOTE log process exception
+process.on('uncaughtException', error => logError('[service:uncaughtException]', error && {
+  message: error.message,
+  stack: error.stack,
+  code: error.code,
+}) || process.exit(1));
 
 dotenv.config({ override: false, debug: varBoolean(process.env.DEBUG) });
 export const DEBUG = varBoolean(process.env.DEBUG);
@@ -12,18 +23,15 @@ export const API = {
   host: varString(process.env.HOST),
   allowDomains: varArray(process.env.ALLOW_DOMAINS) || ['.'],
 };
+// NOTE for now RabbitMQ only
+export const QUEUE = {
+  rabbitmq: Boolean(process.env.RABBITMQ_URL),
+  rabbitmqUrl: varString(process.env.RABBITMQ_URL),
+};
 // NOTE for now Redis only
 export const CACHE = {
-  url: varString(process.env.REDIS_URL),
-  // name: process.env.REDIS_NAME,
-  // database: process.env.REDIS_DB,
-  // username: process.env.REDIS_USERNAME,
-  // password: process.env.REDIS_PASSWORD,
-  // commandsQueueMaxLength?: number;
-  // disableOfflineQueue?: boolean;
-  // readonly?: boolean;
-  // legacyMode?: boolean;
-  // isolationPoolOptions?: PoolOptions;
+  redis: Boolean(process.env.REDIS_URL),
+  redisUrl: varString(process.env.REDIS_URL),
 };
 export const PRERENDER = {
   browserDebuggingPort: varNumber(process.env.CHROME_DEBUGGING_PORT),
@@ -37,6 +45,7 @@ export const PRERENDER = {
   followRedirects: varBoolean(process.env.CHROME_FOLLOW_REDIREC), // Weather to follow redirect
   cleanupHtmlScript: varString(process.env.CHROME_CLEANUP_HTML_SCRIPT) || defaultCleanupHtmlScript(), // ability to pass string with JS to execute on all pages
 };
+export const config = { API, CACHE, PRERENDER, QUEUE };
 /******************************************************
  *            variables parsers
  *****************************************************/

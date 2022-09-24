@@ -18,12 +18,12 @@ export function isReady () { return CONNECTED; }
 
 export async function start (config) {
   log('[redis:connecting]', config);
-  client = createClient(config);
-  client.on('connect', () => debug('[redis:start]', CONNECTED = true));
-  client.on('ready', () => debug('[redis:ready]'));
+  client = createClient({ url: config.redisUrl });
+  client.on('connect', () => debug('[redis:start]'));
+  client.on('ready', () => debug('[redis:connected]', CONNECTED = true));
   client.on('end', () => debug('[redis:stopped]', CONNECTED = false));
   client.on('error', error => logError('REDIS', { message: error.message, stack: error.stack }));
   await client.connect();
-  log('[redis:connected]');
+  log('[redis:started]', config.redisUrl);
 }
 

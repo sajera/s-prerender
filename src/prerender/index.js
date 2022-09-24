@@ -7,7 +7,7 @@ import { chrome as browser } from './chrome.js';
 import { DEBUG, debug, delay, log, suid } from '../config.js';
 
 // NOTE required interface for "prerender"
-export default { start, render, isReady };
+export default { start, isReady, render };
 
 // configure
 let CONNECTED;
@@ -19,13 +19,13 @@ process.on('SIGINT', () => {
 export function isReady () { return CONNECTED; }
 
 export async function start (config) {
-  log('[prerender:starting]', config);
+  log('[prerender:connecting]', config);
   browser.kill();
   await browser.spawn(config);
-  browser.onClose(() => log('[prerender:stopped]', CONNECTED = false));
-  await browser.connect();
+  browser.onClose(() => log('[prerender:stopped]', CONNECTED = false, start(config)));
+  const info = await browser.connect();
   CONNECTED = true;
-  log('[prerender:started]');
+  log('[prerender:started]', info);
 }
 
 // TODO ERROR:[service:unhandledRejection]
