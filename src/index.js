@@ -130,7 +130,7 @@ const parseUrls = request => new Promise((resolve, reject) => {
     }
     if (!Array.isArray(urls)) { reject({ code: 422, message: 'Invalid data, expected an Array with URLs' }); }
     const obj = {};
-    for (const url of urls) { obj[url] = 1; }
+    for (const url of urls) { obj[qs.unescape(url)] = 1; }
     urls = [];
     // NOTE only uniq and valid url
     for (const url in obj) { isUrl(url) && urls.push(url); }

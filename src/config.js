@@ -29,6 +29,7 @@ export const QUEUE = {
   rabbitmq: Boolean(process.env.RABBITMQ_URL),
   rabbitmqUrl: varString(process.env.RABBITMQ_URL),
   rabbitmqQueue: varString(process.env.RABBITMQ_QUEUE),
+  rabbitmqChannels: varNumber(process.env.RABBITMQ_CHANNELS),
 };
 // NOTE for now Redis only
 export const CACHE = {
