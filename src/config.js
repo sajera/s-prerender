@@ -18,7 +18,7 @@ process.on('uncaughtException', error => logError('[service:uncaughtException]',
 dotenv.config({ override: false, debug: varBoolean(process.env.DEBUG) });
 // NOTE reading any variables only after reading defaults to make sure the minimal required data was set
 export const DEBUG = varBoolean(process.env.DEBUG);
-// NOTE for base node server
+// NOTE
 export const API = {
   port: varNumber(process.env.PORT),
   host: varString(process.env.HOST),
