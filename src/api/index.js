@@ -18,7 +18,7 @@ export function start (config) {
   isReady() && api.close(() => log('[api:stopped]'));
   return new Promise(resolve => {
     api = createServer(middleware);
-    log('[api:starting]', config);
+    log('[api:connecting]', config);
     api.listen(config.port, config.host, () => {
       log('[api:started]', `http://${config.host}:${config.port}/`);
       resolve();

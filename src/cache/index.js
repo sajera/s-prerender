@@ -2,18 +2,19 @@
 // local dependencies
 import redis from './redis.js';
 
-// NOTE module interface
+// configure
 const noop = () => null;
+// NOTE module interface
 const cache = { start, isReady: noop, set: noop, get: noop, del: noop };
 
-// TODO switching based on environment variables
-// NOTE for now implemented only Redis ¯\_(ツ)_/¯
+// NOTE switching based on environment variables
 function start (config) {
   if (config.redis) {
     Object.assign(cache, redis);
     return redis.start(config);
   }
-  throw new Error('No useful CACHE configuration found');
+  // NOTE for now implemented only Redis ¯\_(ツ)_/¯
+  // throw new Error('No useful CACHE configuration found');
 }
 
 export default cache;

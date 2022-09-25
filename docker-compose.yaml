@@ -10,8 +10,10 @@ services:
       DEBUG: 1
       PORT: 3636
       REDIS_URL: redis://cache:6379/0
+      RABBITMQ_URL: amqp://queue:5672
     depends_on:
       - cache
+      - queue
     ports:
       - '3636:3636'
     command: npm run start:dev
@@ -27,6 +29,16 @@ services:
     command: redis-server --save 20 1 --loglevel warning
     volumes:
       - cache:/data/cache
+      -
+  queue:
+    image: rabbitmq:management
+    restart: always
+    ports:
+      - '5672:5672'
+      - '15672:15672'
+    volumes:
+      - queue:/data/queue
+      -
 
 volumes:
   cache:

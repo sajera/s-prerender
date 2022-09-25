@@ -2,18 +2,19 @@
 // local dependencies
 import rabbitmq from './rabbitmq.js';
 
-// NOTE module interface
+// configure
 const noop = () => null;
-const queue = { start, isReady: noop };
+// NOTE module interface
+const queue = { start, isReady: noop, sendToQueue: noop };
 
-// TODO switching based on environment variables
-// NOTE for now implemented only Redis ¯\_(ツ)_/¯
+// NOTE switching based on environment variables
 function start (config) {
   if (config.rabbitmq) {
     Object.assign(queue, rabbitmq);
     return rabbitmq.start(config);
   }
-  throw new Error('No useful QUEUE configuration found');
+  // NOTE for now implemented only RabbitMQ ¯\_(ツ)_/¯
+  // throw new Error('No useful QUEUE configuration found');
 }
 
 export default queue;

@@ -14,10 +14,11 @@ process.on('uncaughtException', error => logError('[service:uncaughtException]',
   stack: error.stack,
   code: error.code,
 }) || process.exit(1));
-
+// NOTE strict dotenv rules to avoid unexpected process environment - .env is defaults with minimal priority
 dotenv.config({ override: false, debug: varBoolean(process.env.DEBUG) });
+// NOTE reading any variables only after reading defaults to make sure the minimal required data was set
 export const DEBUG = varBoolean(process.env.DEBUG);
-
+// NOTE for base node server
 export const API = {
   port: varNumber(process.env.PORT),
   host: varString(process.env.HOST),
@@ -27,12 +28,14 @@ export const API = {
 export const QUEUE = {
   rabbitmq: Boolean(process.env.RABBITMQ_URL),
   rabbitmqUrl: varString(process.env.RABBITMQ_URL),
+  rabbitmqQueue: varString(process.env.RABBITMQ_QUEUE),
 };
 // NOTE for now Redis only
 export const CACHE = {
   redis: Boolean(process.env.REDIS_URL),
   redisUrl: varString(process.env.REDIS_URL),
 };
+// NOTE Chrome/Chromium only
 export const PRERENDER = {
   browserDebuggingPort: varNumber(process.env.CHROME_DEBUGGING_PORT),
   chromeLocation: varString(process.env.CHROME_BIN),
@@ -61,6 +64,7 @@ export function varArray (value) {
 export function varString (value) {
   return /^(null|undefined)$/i.test(value) ? void 0 : value;
 }
+// TODO way to setup js for rendered page
 export function defaultCleanupHtmlScript () {
   return `(tags => {
   for(const tag of tags) {
