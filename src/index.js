@@ -60,7 +60,7 @@ async function getRefresh (request) {
   log('[api:generate]', url);
   await cache.set(url, results);
   log('[api:to-cache]', url);
-  return 'OK';
+  return qs.parse(request.url.query).ignoreResults ? 'OK' : results;
 }
 
 /******************************************************
