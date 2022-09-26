@@ -1,6 +1,6 @@
 {
   "name": "s-prerender",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "type": "module",
   "description": "s-prerender is the Service to solve SPA problems with SEO",
   "main": "src/index.js",
@@ -13,6 +13,7 @@
   "homepage": "https://github.com/sajera/s-prerender#s-prerender",
   "license": "MIT",
   "dependencies": {
+    "amqplib": "^0.10.3",
     "chrome-remote-interface": "^0.31.3",
     "dotenv": "^16.0.1",
     "redis": "^4.2.0"

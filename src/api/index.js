@@ -4,7 +4,7 @@ import url from 'node:url';
 import { createServer } from 'node:http';
 
 // local dependencies
-import { logError, log, suid, DEBUG } from '../config.js';
+import { logError, log, suid } from '../config.js';
 
 // NOTE required interface for "api"
 export default { start, isReady, middleware };
@@ -18,7 +18,7 @@ export function start (config) {
   isReady() && api.close(() => log('[api:stopped]'));
   return new Promise(resolve => {
     api = createServer(middleware);
-    log('[api:starting]', config);
+    log('[api:connecting]', config);
     api.listen(config.port, config.host, () => {
       log('[api:started]', `http://${config.host}:${config.port}/`);
       resolve();

@@ -44,7 +44,7 @@ chrome.connect = () => new Promise((resolve, reject) => {
     clearTimeout(timeout);
     connected = true;
     debug('[prerender:ready]', info);
-    resolve(info);
+    resolve(info['User-Agent']);
   }).catch(error => debug('[prerender:connect] Retrying connection to browser...', error, setTimeout(retry, 4e3)));
   setTimeout(retry, 0);
 });
