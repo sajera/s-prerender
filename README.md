@@ -34,6 +34,8 @@ Deployment using `Dockerfile` require only `REDIS_URL`.
 
 `REDIS_URL=` connection to Redis within your environment
 
+`RABBITMQ_URL=` connection to RabbitMQ within your environment (optional)
+
 > Defaults
 - `PORT=3636`
 - `DEBUG=false`
@@ -42,6 +44,11 @@ Deployment using `Dockerfile` require only `REDIS_URL`.
 - `CHROME_DEBUGGING_PORT=9222`
 - `CHROME_BIN=/usr/bin/chromium-browser`
 - `CHROME_FLAGS=--no-sandbox,--headless,--disable-gpu,--remote-debugging-port=9222,--hide-scrollbars,--disable-dev-shm-usage`
+- `REDIS_URL=`
+- `RABBITMQ_URL=`
+- `RABBITMQ_CHANNELS=1`
+- `RABBITMQ_QUEUE=PRERENDER`
+
 
 ---
 ### API
@@ -57,6 +64,11 @@ Deployment using `Dockerfile` require only `REDIS_URL`.
 - Force reset the cache and render URL in `Chromium` browser, returns `HTML`.
   - **GET /refresh**
   - `curl 'http://localhost:3636/refresh?url=http://example.com/'`
+  - Optional query `ignoreResults=true` to avoid html results
+
+- Force reset the cache and render URLs in `Chromium` browser
+  - **POST /refresh**
+  - `curl 'http://localhost:3636/refresh' -X 'POST' --data-raw '["not a link","http://example.com/","http://example.com/"]'`
 
 - Will get URL `HTML` content from the cache.
   - **GET /cached**
@@ -76,7 +88,7 @@ Deployment using `Dockerfile` require only `REDIS_URL`.
 - [x] Docker image
 - [x] Docker for local development
 - [x] Domain limitation
-- [ ] Queue for rendering
+- [x] Queue for rendering
 - [ ] Accumulate Sitemap
 - [ ] Different cache technology
 - [ ] Different queue technology

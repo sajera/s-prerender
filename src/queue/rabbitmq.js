@@ -14,13 +14,12 @@ export default { start, isReady, sendToQueue };
 let client;
 let CONNECTED;
 export function isReady () { return CONNECTED; }
-export async function sendToQueue (messages) {
+export async function sendToQueue (urls) {
   const channel = await client.createChannel();
   await channel.assertQueue(client.queue, client.queueOptions);
-  debug(`[rabbitmq:sendToQueue] ${client.queue}`, messages);
-  for (const msg of messages) {
-    // TODO message schema
-    channel.sendToQueue(client.queue, Buffer.from(msg), client.sendOptions);
+  debug(`[rabbitmq:sendToQueue] ${client.queue}`, urls);
+  for (const url of urls) {
+    channel.sendToQueue(client.queue, formatMessage({ url }), client.sendOptions);
   }
 }
 
@@ -41,31 +40,27 @@ export async function start (config) {
   log('[rabbitmq:started]', config.rabbitmqUrl);
 }
 
-const connect = url => new Promise(resolve => {
-  const retry = () => amqp.connect(url)
-    .then(connection => {
-      debug('[rabbitmq:connected]', CONNECTED = true);
-      resolve(client = connection);
-    })
-    .catch(error => logError('RABBITMQ', { message: error.message, stack: error.stack }, setTimeout(retry, 4e3)));
-  retry();
-});
-
 const message = channel => async message => {
+  const { url, attempt = 0 } = parseMessage(message.content.toString());
   try {
-    // TODO message schema from Estative
-    // TODO limit attempts to handle message
-    if (message.fields.deliveryTag < 5) {
-      log('[rabbitmq:message]', message.content.toString());
-      await refresh(message.content.toString());
-    }
-    channel.ack(message);
+    log(`[rabbitmq:message] ${attempt}`, message.content.toString());
+    await refresh(url);
   } catch (error) {
-    channel.reject(message, true);
-    logError('[rabbitmq:message]', { message: error.message, stack: error.stack });
+    logError('[rabbitmq:message]', error.message);
+    // NOTE try again later
+    if (url && attempt > 0) {
+      try {
+        // NOTE create new message in a queue
+        channel.sendToQueue(client.queue, formatMessage({ url, attempt: attempt - 1 }), client.sendOptions);
+      } catch (error) { /* NOTE unbelievable, but just in case */ }
+    }
   }
+  // NOTE at any case message was handled
+  channel.ack(message);
 }
-
+/******************************************************
+ *               HELPERS
+ *****************************************************/
 const refresh = url => new Promise((resolve, reject) => {
   http.get(new URL(`http://${config.API.host}:${config.API.port}/refresh?ignoreResults=true&url=${url}`), response => {
     // NOTE consume response data to free up memory
@@ -74,4 +69,23 @@ const refresh = url => new Promise((resolve, reject) => {
     return response.statusCode === 200 ? resolve('OK')
       : reject(new Error(`Request Failed. [${response.statusCode}] Failed to refresh "${url}"`));
   });
+});
+
+const formatMessage = ({ url, attempt = 3 }) => Buffer.from(JSON.stringify({ attempt, url }));
+const parseMessage = message => {
+  try {
+    return JSON.parse(message.toString()) || {};
+  } catch (error) {
+    return {};
+  }
+}
+
+const connect = url => new Promise(resolve => {
+  const retry = () => amqp.connect(url)
+    .then(connection => {
+      debug('[rabbitmq:connected]', CONNECTED = true);
+      resolve(client = connection);
+    })
+    .catch(error => logError('RABBITMQ', { message: error.message, stack: error.stack }, setTimeout(retry, 4e3)));
+  retry();
 });

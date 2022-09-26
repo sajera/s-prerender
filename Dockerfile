@@ -5,6 +5,8 @@ RUN apk add --update-cache chromium && \
 
 ENV DEBUG=false \
     HOST=0.0.0.0 \
+    REDIS_URL="" \
+    RABBITMQ_URL="" \
     CHROME_DEBUGGING_PORT=9222 \
     CHROME_BIN=/usr/bin/chromium-browser \
     CHROME_FLAGS="--no-sandbox,--headless,--disable-gpu,--remote-debugging-port=9222,--hide-scrollbars,--disable-dev-shm-usage"
